@@ -1,0 +1,2520 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="default">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>TaskBoard by NullYex</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0a0a0a" id="themeColorMeta">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TaskBoard">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png">
+
+    <!-- SEO / social -->
+    <meta name="description" content="Assignment tracker for Arka Jain University students — manage assignments, syllabus and notes.">
+    <meta name="application-name" content="TaskBoard">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
+
+    <style>
+        /* ===== CSS VARIABLES & THEMES ===== */
+        :root {
+            --bg-base: #0a0a0a;
+            --bg-surface: #141414;
+            --bg-surface-hover: #1f1f1f;
+            --bg-modal: #1a1a1a;
+            --text-main: #ededed;
+            --text-muted: #71717a;
+            --border: #222222;
+            --border-focus: #3f3f46;
+            --danger: #ef4444;
+            --warning: #eab308;
+            --success: #22c55e;
+            --font-mono: 'IBM Plex Mono', monospace;
+            --font-sans: 'IBM Plex Sans', sans-serif;
+            --sidebar-width: 232px;
+            --sidebar-collapsed: 48px;
+            --topbar-height: 52px;
+            --radius-sm: 3px;
+            --radius-md: 6px;
+            --radius-lg: 10px;
+            --radius-full: 9999px;
+            --shadow-modal: 0 20px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+        }
+
+        [data-theme="default"] { --accent: #22c55e; --accent-hover: #16a34a; --accent-alpha: rgba(34,197,94,0.08); }
+        [data-theme="violet"]  { --accent: #8b5cf6; --accent-hover: #7c3aed; --accent-alpha: rgba(139,92,246,0.08); }
+        [data-theme="rose"]    { --accent: #f43f5e; --accent-hover: #e11d48; --accent-alpha: rgba(244,63,94,0.08); }
+        [data-theme="blue"]    { --accent: #3b82f6; --accent-hover: #2563eb; --accent-alpha: rgba(59,130,246,0.08); }
+        [data-theme="amber"]   { --accent: #f59e0b; --accent-hover: #d97706; --accent-alpha: rgba(245,158,11,0.08); }
+        [data-theme="light"] {
+            --bg-base: #f4f4f5; --bg-surface: #ffffff; --bg-surface-hover: #f4f4f5;
+            --bg-modal: #ffffff; --text-main: #18181b; --text-muted: #71717a;
+            --border: #e4e4e7; --border-focus: #a1a1aa;
+            --accent: #18181b; --accent-hover: #3f3f46; --accent-alpha: rgba(24,24,27,0.06);
+        }
+
+        /* ===== RESET ===== */
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-base);
+            color: var(--text-main);
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        button { cursor:pointer; font-family:inherit; background:none; border:none; color:inherit; }
+        input, select, textarea { font-family:inherit; }
+        a { color:var(--accent); text-decoration:none; }
+        a:hover { text-decoration:underline; }
+        .hidden { display:none !important; }
+        .mono { font-family:var(--font-mono); }
+
+        /* ===== TYPOGRAPHY ===== */
+        h1, h2, h3 { font-family:var(--font-mono); font-weight:600; }
+        .text-sm { font-size:0.875rem; }
+        .text-xs { font-size:0.75rem; }
+        .text-muted { color:var(--text-muted); }
+
+        /* ===== COMPONENTS ===== */
+        .btn {
+            display:inline-flex; align-items:center; justify-content:center; gap:6px;
+            padding:7px 14px; border-radius:var(--radius-md); font-weight:500;
+            font-size:0.8125rem; transition:all 0.15s; border:1px solid transparent;
+            white-space:nowrap; flex-shrink:0;
+        }
+        .btn:disabled { opacity:0.45; cursor:not-allowed; pointer-events:none; }
+        .btn-primary  { background:var(--accent); color:#000; border-color:var(--accent); }
+        .btn-primary:hover:not(:disabled) { background:var(--accent-hover); border-color:var(--accent-hover); }
+        .btn-secondary { background:var(--bg-surface); border-color:var(--border); color:var(--text-main); }
+        .btn-secondary:hover:not(:disabled) { background:var(--bg-surface-hover); border-color:var(--border-focus); }
+        .btn-ghost { background:transparent; color:var(--text-muted); }
+        .btn-ghost:hover:not(:disabled) { background:var(--bg-surface-hover); color:var(--text-main); }
+        .btn-danger { background:rgba(239,68,68,0.08); color:var(--danger); border-color:rgba(239,68,68,0.2); }
+        .btn-danger:hover:not(:disabled) { background:rgba(239,68,68,0.16); }
+        .btn-icon { padding:7px; width:34px; height:34px; }
+        
+        .input {
+            width:100%; padding:8px 12px; border-radius:var(--radius-md);
+            background:var(--bg-base); border:1px solid var(--border); color:var(--text-main);
+            font-size:0.875rem; outline:none; transition:border-color 0.15s;
+        }
+        .input:focus { border-color:var(--accent); }
+
+        .chip {
+            display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+            border-radius:var(--radius-full); font-size:0.7rem; font-family:var(--font-mono);
+            background:var(--bg-surface); border:1px solid var(--border); white-space:nowrap;
+        }
+        .chip.warning { border-color:rgba(234,179,8,0.4); color:var(--warning); background:rgba(234,179,8,0.08); }
+        .chip.danger  { border-color:rgba(239,68,68,0.4); color:var(--danger);  background:rgba(239,68,68,0.08); }
+
+        .avatar {
+            width:32px; height:32px; border-radius:var(--radius-full); background:var(--bg-surface-hover);
+            display:flex; align-items:center; justify-content:center; font-weight:600; font-size:0.8rem;
+            border:1px solid var(--border); overflow:hidden; flex-shrink:0; cursor:pointer;
+        }
+        .avatar img { width:100%; height:100%; object-fit:cover; }
+        .avatar.lg { width:52px; height:52px; font-size:1.1rem; }
+
+        .checkbox-container { display:inline-flex; align-items:center; cursor:pointer; position:relative; }
+        .checkbox-container input { opacity:0; position:absolute; width:0; height:0; }
+        .checkmark {
+            width:20px; height:20px; border-radius:var(--radius-sm); border:1.5px solid var(--border-focus);
+            display:flex; align-items:center; justify-content:center; transition:all 0.15s;
+            background:var(--bg-base); color:transparent; flex-shrink:0;
+        }
+        .checkbox-container:hover .checkmark { border-color:var(--accent); }
+        .checkbox-container input:checked ~ .checkmark { background:var(--accent); border-color:var(--accent); color:#000; }
+        .checkbox-container input:disabled ~ .checkmark { opacity:0.4; cursor:not-allowed; }
+
+        /* ===== LAYOUT ===== */
+        .topbar {
+            height:var(--topbar-height); border-bottom:1px solid var(--border);
+            background:var(--bg-surface); display:flex; align-items:center;
+            justify-content:space-between; padding:0 16px; z-index:50; flex-shrink:0;
+        }
+        .topbar-left, .topbar-right { display:flex; align-items:center; gap:10px; }
+        .logo {
+            font-family:'JetBrains Mono', monospace; font-weight:800; font-size:1.125rem;
+            letter-spacing:-1px; display:flex; align-items:baseline; gap:2px;
+        }
+        .logo .cursor { color:var(--accent); }
+        .logo .brand { font-family:var(--font-mono); font-size:0.65rem; font-weight:400; color:var(--text-muted); margin-left:6px; letter-spacing:0; }
+
+        .app-body { display:flex; flex:1; overflow:hidden; }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width:var(--sidebar-width); border-right:1px solid var(--border);
+            background:var(--bg-surface); display:flex; flex-direction:column;
+            transition:width 0.25s ease; z-index:30; flex-shrink:0; overflow:hidden;
+        }
+        .sidebar.collapsed { width:var(--sidebar-collapsed); }
+        .sidebar-header {
+            padding:10px 8px; display:flex; align-items:center; justify-content:space-between;
+            border-bottom:1px solid var(--border); gap:8px; flex-shrink:0;
+        }
+        .sidebar.collapsed .sidebar-header { justify-content:center; }
+        .sidebar-search { flex:1; }
+        .sidebar.collapsed .sidebar-search { display:none; }
+        
+        .sidebar-content { flex:1; overflow-y:auto; padding:6px; }
+        .sidebar-content::-webkit-scrollbar { width:3px; }
+        .sidebar-content::-webkit-scrollbar-thumb { background:var(--border-focus); border-radius:2px; }
+
+        .nav-item {
+            display:flex; align-items:center; gap:10px; padding:8px 10px;
+            border-radius:var(--radius-md); cursor:pointer; transition:background 0.15s, color 0.15s;
+            color:var(--text-muted); margin-bottom:1px; overflow:hidden; position:relative;
+            white-space:nowrap;
+        }
+        .nav-item:hover { background:var(--bg-surface-hover); color:var(--text-main); }
+        .nav-item.active { background:var(--accent-alpha); color:var(--accent); }
+        
+        .nav-icon {
+            width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+            font-family:var(--font-mono); font-size:0.65rem; font-weight:700; border-radius:3px;
+            background:var(--bg-base); flex-shrink:0; border:1px solid var(--border);
+        }
+        .nav-item.active .nav-icon { background:var(--accent); color:#000; border-color:var(--accent); }
+        
+        .nav-label { flex:1; overflow:hidden; text-overflow:ellipsis; font-size:0.8125rem; }
+        .nav-badge {
+            background:var(--bg-base); padding:1px 5px; border-radius:10px;
+            font-size:0.65rem; font-family:var(--font-mono); border:1px solid var(--border);
+            flex-shrink:0;
+        }
+        .dot-past-due {
+            width:6px; height:6px; border-radius:50%; background:var(--danger);
+            box-shadow:0 0 6px var(--danger); animation:pulse 2s infinite; flex-shrink:0;
+        }
+        .sidebar.collapsed .nav-label,
+        .sidebar.collapsed .nav-badge,
+        .sidebar.collapsed .dot-past-due { display:none; }
+        .sidebar.collapsed .nav-item { justify-content:center; padding:8px 0; }
+        .sidebar.collapsed .nav-icon { margin:0; }
+
+        .nav-section-divider {
+            height:1px; background:var(--border); margin:6px 4px 6px 4px;
+        }
+        .nav-section-label {
+            font-size:0.6rem; font-family:var(--font-mono); color:var(--text-muted);
+            padding:6px 10px 2px; letter-spacing:0.08em; text-transform:uppercase;
+        }
+        .sidebar.collapsed .nav-section-label,
+        .sidebar.collapsed .nav-section-divider-labeled { display:none; }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+
+        /* ===== SUBJECT HEADER ===== */
+        .subject-header {
+            padding:20px 24px 0; border-bottom:1px solid var(--border);
+            background:var(--bg-surface); flex-shrink:0;
+        }
+        .subject-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+        .subject-title { font-size:1.25rem; font-family:var(--font-mono); font-weight:600; line-height:1.3; }
+        .subject-meta { font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:12px; margin-top:4px; flex-wrap:wrap; }
+
+        /* Progress Bar */
+        .progress-wrap { margin-bottom:16px; }
+        .progress-header { display:flex; justify-content:space-between; font-size:0.7rem; font-family:var(--font-mono); margin-bottom:5px; color:var(--text-muted); }
+        .progress-bar { width:100%; height:3px; background:var(--bg-base); border-radius:2px; overflow:hidden; }
+        .progress-fill { height:100%; background:var(--accent); transition:width 0.4s ease-out; border-radius:2px; }
+
+        /* ===== TAB NAV ===== */
+        .tab-nav {
+            display:flex; gap:0; padding:0 24px; position:relative;
+        }
+        .tab-btn {
+            display:flex; align-items:center; gap:6px; padding:10px 16px;
+            font-size:0.8125rem; font-weight:500; color:var(--text-muted); cursor:pointer;
+            border-bottom:2px solid transparent; transition:all 0.15s; background:none; border-left:none; border-right:none; border-top:none;
+            white-space:nowrap;
+        }
+        .tab-btn:hover { color:var(--text-main); }
+        .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+        .tab-btn i { font-size:14px; }
+
+        /* ===== TAB CONTENT AREA ===== */
+        .tab-content { flex:1; overflow-y:auto; }
+        .tab-panel { display:none; }
+        .tab-panel.active { display:block; }
+
+        /* ===== ASSIGNMENTS TAB ===== */
+        .panel-toolbar {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:14px 24px; gap:12px; flex-shrink:0;
+        }
+        .assignment-list { display:flex; flex-direction:column; gap:10px; padding:0 24px 24px; }
+
+        /* Sort Dropdown */
+        .sort-dropdown-wrap { position:relative; }
+        .sort-dropdown-menu {
+            position:absolute; top:calc(100% + 4px); left:0; z-index:60;
+            background:var(--bg-modal); border:1px solid var(--border); border-radius:var(--radius-md);
+            padding:4px; min-width:160px; box-shadow:var(--shadow-modal);
+            display:none;
+        }
+        .sort-dropdown-menu.open { display:block; }
+        .sort-option {
+            display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:var(--radius-sm);
+            font-size:0.8125rem; cursor:pointer; transition:background 0.1s; color:var(--text-muted);
+        }
+        .sort-option:hover { background:var(--bg-surface-hover); color:var(--text-main); }
+        .sort-option.active { color:var(--accent); background:var(--accent-alpha); }
+
+        /* ===== CARD ===== */
+        .card {
+            background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:16px; transition:border-color 0.15s;
+        }
+        .card:hover { border-color:var(--border-focus); }
+        .card.completed { opacity:0.55; }
+        .card.completed .card-title { text-decoration:line-through; color:var(--text-muted); }
+        
+        .card-row { display:flex; gap:14px; align-items:flex-start; }
+        .card-body { flex:1; min-width:0; }
+        .card-title { font-size:1rem; font-weight:500; margin-bottom:8px; }
+        .card-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+        .card-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+
+        /* ===== UPLOADS ===== */
+        .uploads-list { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+        .upload-item {
+            display:flex; align-items:center; justify-content:space-between; gap:10px;
+            padding:10px 12px; background:var(--bg-base); border:1px solid var(--border);
+            border-radius:var(--radius-md); transition:border-color 0.15s;
+        }
+        .upload-item:hover { border-color:var(--border-focus); }
+        .upload-info { display:flex; gap:10px; align-items:center; overflow:hidden; flex:1; min-width:0; }
+        .upload-icon-wrap { background:var(--bg-surface-hover); padding:7px; border-radius:var(--radius-sm); color:var(--text-muted); display:flex; flex-shrink:0; }
+        .upload-text { display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+        .upload-name { font-weight:500; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; font-size:0.875rem; }
+        .upload-sub { font-size:0.7rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* ===== SYLLABUS & NOTES PANELS ===== */
+        .syllabus-list, .notes-list { display:flex; flex-direction:column; gap:10px; padding:0 24px 24px; }
+        .syllabus-card, .note-card {
+            background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:16px; transition:border-color 0.15s;
+        }
+        .syllabus-card:hover, .note-card:hover { border-color:var(--border-focus); }
+        .item-title { font-size:0.9375rem; font-weight:500; margin-bottom:6px; }
+        .item-body { font-size:0.875rem; color:var(--text-muted); line-height:1.6; white-space:pre-wrap; }
+        .item-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state {
+            text-align:center; padding:48px 20px; border:1px dashed var(--border);
+            border-radius:var(--radius-lg); color:var(--text-muted);
+        }
+        .empty-state i { font-size:40px; margin-bottom:12px; display:block; }
+        .empty-state p { font-size:0.875rem; }
+
+        /* ===== COVER PAGE ===== */
+        #coverPageView { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+        .cp-toolbar { padding:14px 24px; border-bottom:1px solid var(--border); background:var(--bg-surface); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+        .cp-container { display:flex; flex:1; overflow:hidden; }
+        .cp-form-area { width:300px; border-right:1px solid var(--border); padding:20px; overflow-y:auto; background:var(--bg-surface); flex-shrink:0; }
+        .cp-preview-area { flex:1; overflow-y:auto; padding:32px; background:var(--bg-base); display:flex; justify-content:center; }
+        .cp-a4 {
+            width:794px; min-height:1123px; background:#fff; color:#000;
+            padding:40px; position:relative; font-family:'Times New Roman',serif;
+            box-shadow:0 10px 30px rgba(0,0,0,0.5); flex-shrink:0;
+        }
+        .cp-a4-inner { border:3px solid #000; padding:4px; height:100%; display:flex; flex-direction:column; }
+        .cp-a4-content { border:1px solid #000; height:100%; padding:36px; display:flex; flex-direction:column; flex:1; }
+        .cp-header { text-align:center; margin-bottom:32px; }
+        .cp-logo-row { display:flex; justify-content:center; align-items:center; gap:16px; margin-bottom:20px; }
+        .cp-fields { display:flex; flex-direction:column; gap:14px; font-size:17px; margin-bottom:auto; }
+        .cp-field-row { display:flex; }
+        .cp-field-label { width:180px; flex-shrink:0; }
+        .cp-field-value { border-bottom:1px dashed #000; flex:1; min-height:22px; }
+        .cp-footer { display:flex; justify-content:space-between; align-items:flex-end; margin-top:48px; font-size:17px; }
+        .cp-grade-box { border:2px solid #556b2f; padding:10px 20px; font-size:22px; font-weight:bold; min-width:140px; }
+
+        /* ===== MODALS ===== */
+        .modal-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);
+            z-index:100; display:flex; justify-content:center; align-items:flex-end;
+            opacity:0; visibility:hidden; transition:opacity 0.2s, visibility 0.2s;
+            padding:0;
+        }
+        .modal-overlay.active { opacity:1; visibility:visible; }
+        .modal {
+            background:var(--bg-modal); border:1px solid var(--border); border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+            width:100%; max-width:100%; box-shadow:var(--shadow-modal);
+            transform:translateY(40px); transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+            max-height:90dvh; display:flex; flex-direction:column;
+        }
+        .modal-overlay.active .modal { transform:translateY(0); }
+        .modal-handle { width:36px; height:4px; background:var(--border-focus); border-radius:2px; margin:10px auto 0; flex-shrink:0; }
+        .modal-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .modal-body { padding:20px; overflow-y:auto; flex:1; }
+        .modal-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; flex-shrink:0; }
+        .form-group { margin-bottom:14px; }
+        .form-label { display:block; font-size:0.8rem; margin-bottom:5px; color:var(--text-muted); font-family:var(--font-mono); }
+
+        /* Desktop modal style */
+        @media (min-width: 640px) {
+            .modal-overlay { align-items:center; padding:16px; }
+            .modal { border-radius:var(--radius-lg); max-width:480px; transform:translateY(20px); }
+            .modal-handle { display:none; }
+        }
+
+        /* ===== CUSTOM DATEPICKER ===== */
+        .datepicker-wrapper { position:relative; }
+        .datepicker-trigger {
+            width:100%; text-align:left; background:var(--bg-base); border:1px solid var(--border);
+            padding:8px 12px; border-radius:var(--radius-md); font-size:0.875rem; color:var(--text-main);
+            display:flex; justify-content:space-between; align-items:center; cursor:pointer;
+        }
+        .datepicker-trigger:hover { border-color:var(--border-focus); }
+        .datepicker-popover {
+            position:absolute; top:calc(100% + 4px); left:0; z-index:110;
+            background:var(--bg-modal); border:1px solid var(--border); border-radius:var(--radius-md);
+            padding:12px; box-shadow:var(--shadow-modal); width:272px; display:none;
+        }
+        .datepicker-popover.active { display:block; }
+        .dp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .dp-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:3px; text-align:center; }
+        .dp-day-name { font-size:0.68rem; color:var(--text-muted); padding-bottom:4px; font-family:var(--font-mono); }
+        .dp-day { padding:6px 0; font-size:0.8125rem; cursor:pointer; border-radius:var(--radius-sm); transition:background 0.1s; border:1px solid transparent; }
+        .dp-day:hover:not(.disabled) { background:var(--bg-surface-hover); border-color:var(--border); }
+        .dp-day.selected { background:var(--accent); color:#000; font-weight:600; }
+        .dp-day.today { border-color:var(--accent); }
+        .dp-day.disabled { opacity:0.25; cursor:not-allowed; }
+
+        /* ===== PROFILE ===== */
+        .theme-swatches { display:flex; gap:8px; margin-top:8px; }
+        .swatch { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform 0.15s, box-shadow 0.15s; }
+        .swatch:hover { transform:scale(1.15); }
+        .swatch.active { box-shadow:0 0 0 2px var(--bg-modal), 0 0 0 4px var(--text-main); }
+
+        /* ===== TOASTS ===== */
+        .toast-container { position:fixed; bottom:20px; right:20px; z-index:200; display:flex; flex-direction:column; gap:8px; }
+        .toast {
+            background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md);
+            padding:11px 14px; display:flex; align-items:center; gap:10px;
+            box-shadow:var(--shadow-modal); transform:translateX(120%);
+            transition:transform 0.25s cubic-bezier(0.4,0,0.2,1); width:280px; font-size:0.875rem;
+        }
+        .toast.show { transform:translateX(0); }
+        .toast.success { border-left:3px solid var(--success); }
+        .toast.error   { border-left:3px solid var(--danger); }
+
+        /* ===== UTILS ===== */
+        .spinner { animation:spin 0.8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes pulse {
+            0%   { box-shadow:0 0 0 0 rgba(239,68,68,0.6); }
+            70%  { box-shadow:0 0 0 5px rgba(239,68,68,0); }
+            100% { box-shadow:0 0 0 0 rgba(239,68,68,0); }
+        }
+
+        /* ===== MOBILE SIDEBAR OVERLAY ===== */
+        .sidebar-overlay {
+            display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+            z-index:25; backdrop-filter:blur(2px);
+        }
+        .mobile-menu-btn { display:none; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .mobile-menu-btn { display:flex; }
+            
+            .sidebar {
+                position:fixed; top:var(--topbar-height); bottom:0; left:-100%;
+                width:260px !important; transition:left 0.25s ease;
+            }
+            .sidebar.mobile-open { left:0; }
+            .sidebar-overlay.active { display:block; }
+            /* Force sidebar content visible on mobile */
+            .sidebar .nav-label,
+            .sidebar .nav-badge,
+            .sidebar .dot-past-due,
+            .sidebar .sidebar-search,
+            .sidebar .nav-section-label { display:block !important; }
+            .sidebar .nav-item { justify-content:flex-start !important; padding:8px 10px !important; }
+            .sidebar .nav-icon { display:flex !important; }
+            
+            .logo .brand { display:none; }
+            
+            .subject-header { padding:16px 16px 0; }
+            .tab-btn { padding:10px 12px; font-size:0.75rem; }
+            .tab-btn span { display:none; } /* hide text, show icon only on very narrow */
+            .panel-toolbar { padding:12px 16px; flex-wrap:wrap; }
+            .panel-toolbar .btn-primary { flex:1; justify-content:center; }
+            .assignment-list { padding:0 16px 16px; }
+            .syllabus-list, .notes-list { padding:0 16px 16px; }
+            .card-actions { gap:6px; }
+            .card-actions .btn { flex:1; justify-content:center; min-width:0; }
+            .cp-container { flex-direction:column; }
+            .cp-form-area { width:100%; border-right:none; border-bottom:1px solid var(--border); max-height:40vh; }
+            .cp-preview-area { padding:16px; }
+            .cp-a4 { width:100%; min-height:unset; font-size:10px; }
+            .toast-container { bottom:12px; right:12px; left:12px; }
+            .toast { width:auto; }
+        }
+        
+        @media (max-width: 400px) {
+            .tab-btn span { display:none; }
+            .tab-btn { padding:10px 10px; }
+        }
+
+        /* ===== PWA UPDATE BANNER ===== */
+        .pwa-update-banner {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+            background: var(--bg-surface); border-top: 1px solid var(--accent);
+            padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+        }
+        .pwa-update-banner.visible { transform: translateY(0); }
+        .pwa-update-banner .banner-text { font-size: 0.875rem; display: flex; align-items: center; gap: 8px; }
+        .pwa-update-banner .banner-text i { color: var(--accent); font-size: 18px; flex-shrink: 0; }
+        .pwa-update-banner .banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* PWA install prompt */
+        .pwa-install-btn {
+            display: none; /* shown via JS when installable */
+        }
+
+        /* Safe area insets for notched phones */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            body { padding-bottom: env(safe-area-inset-bottom); }
+            .topbar { padding-top: env(safe-area-inset-top); height: calc(var(--topbar-height) + env(safe-area-inset-top)); }
+        }
+
+        /* Loading skeleton */
+        .skeleton { background:linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-surface-hover) 50%, var(--bg-surface) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-md); }
+        @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+
+        /* ===== COMPLAINT / INBOX ===== */
+        .topbar-icon-btn {
+            position:relative; width:34px; height:34px; display:flex; align-items:center;
+            justify-content:center; border-radius:var(--radius-md); color:var(--text-muted);
+            transition:background 0.15s, color 0.15s; flex-shrink:0;
+        }
+        .topbar-icon-btn:hover { background:var(--bg-surface-hover); color:var(--text-main); }
+        .topbar-icon-btn .badge {
+            position:absolute; top:4px; right:4px; width:8px; height:8px;
+            border-radius:50%; background:var(--danger);
+            box-shadow:0 0 0 2px var(--bg-surface);
+            animation:pulse 2s infinite;
+        }
+
+        /* Type selector pills */
+        .type-pills { display:flex; gap:8px; flex-wrap:wrap; }
+        .type-pill {
+            display:flex; align-items:center; gap:6px; padding:7px 14px;
+            border-radius:var(--radius-full); font-size:0.8rem; border:1px solid var(--border);
+            cursor:pointer; transition:all 0.15s; color:var(--text-muted); background:var(--bg-base);
+        }
+        .type-pill:hover { border-color:var(--border-focus); color:var(--text-main); }
+        .type-pill.active { border-color:var(--accent); color:var(--accent); background:var(--accent-alpha); }
+        .type-pill.active.complaint { border-color:var(--danger); color:var(--danger); background:rgba(239,68,68,0.08); }
+        .type-pill.active.request   { border-color:#3b82f6; color:#3b82f6; background:rgba(59,130,246,0.08); }
+
+        /* Admin inbox */
+        .inbox-filters { display:flex; gap:8px; padding:14px 24px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+        .inbox-list { display:flex; flex-direction:column; gap:8px; padding:20px 24px; }
+        .ticket {
+            background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+            padding:16px; transition:border-color 0.15s; position:relative;
+        }
+        .ticket:hover { border-color:var(--border-focus); }
+        .ticket.unread { border-left:3px solid var(--accent); }
+        .ticket.type-complaint { border-left-color:var(--danger); }
+        .ticket.type-request   { border-left-color:#3b82f6; }
+        .ticket-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:8px; }
+        .ticket-title  { font-weight:600; font-size:0.9rem; }
+        .ticket-meta   { font-size:0.75rem; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+        .ticket-body   { font-size:0.875rem; color:var(--text-muted); line-height:1.6; }
+        .ticket-badge  {
+            font-size:0.65rem; font-family:var(--font-mono); padding:2px 8px; border-radius:var(--radius-full);
+            border:1px solid; flex-shrink:0;
+        }
+        .ticket-badge.complaint { border-color:rgba(239,68,68,0.4); color:var(--danger); background:rgba(239,68,68,0.08); }
+        .ticket-badge.request   { border-color:rgba(59,130,246,0.4); color:#3b82f6; background:rgba(59,130,246,0.08); }
+        .ticket-badge.resolved  { border-color:rgba(34,197,94,0.4); color:var(--success); background:rgba(34,197,94,0.08); }
+        .ticket-actions { display:flex; gap:6px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+
+        .inbox-empty { text-align:center; padding:48px 20px; color:var(--text-muted); }
+        .inbox-empty i { font-size:40px; margin-bottom:12px; display:block; }
+
+        /* Inbox modal wide */
+        .modal.modal-wide { max-width:680px; }
+        @media (min-width:640px) { .modal.modal-wide { max-width:680px; } }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+    <div class="topbar-left">
+        <button class="btn btn-ghost btn-icon mobile-menu-btn" onclick="toggleMobileSidebar()">
+            <i class="ph ph-list" style="font-size:18px;"></i>
+        </button>
+        <div class="logo">TaskBoard<span class="cursor">_</span><span class="brand">by NullYex</span></div>
+        <div id="statusPill" class="chip mono">GUEST</div>
+    </div>
+    <div class="topbar-right">
+        <div id="authContainer"></div>
+    </div>
+</header>
+
+<div class="app-body">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-search">
+                <input type="text" id="subjectSearch" class="input" placeholder="Filter..." style="padding:5px 10px; font-size:0.75rem;">
+            </div>
+            <button class="btn btn-ghost btn-icon" onclick="toggleSidebar()" title="Toggle Sidebar">
+                <i id="sidebarIcon" class="ph ph-caret-line-left" style="font-size:16px;"></i>
+            </button>
+        </div>
+        <div class="sidebar-content" id="subjectList"></div>
+    </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ASSIGNMENTS / SYLLABUS / NOTES VIEW -->
+        <div id="subjectView" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+            
+            <!-- Subject Header -->
+            <div class="subject-header" id="subjectHeader">
+                <div class="subject-title-row">
+                    <div>
+                        <div class="subject-title" id="subjectTitle">—</div>
+                        <div class="subject-meta" id="subjectMeta"></div>
+                    </div>
+                </div>
+                <div id="progressSection" class="progress-wrap" style="display:none;">
+                    <div class="progress-header">
+                        <span>Completion</span>
+                        <span id="progressLabel">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                    </div>
+                </div>
+                <!-- Tab Nav -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="assignments" onclick="switchTab('assignments')">
+                        <i class="ph ph-stack"></i><span>Assignments</span>
+                    </button>
+                    <button class="tab-btn" data-tab="syllabus" onclick="switchTab('syllabus')">
+                        <i class="ph ph-book-open"></i><span>Syllabus</span>
+                    </button>
+                    <button class="tab-btn" data-tab="notes" onclick="switchTab('notes')">
+                        <i class="ph ph-note-pencil"></i><span>Notes</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+
+                <!-- ASSIGNMENTS PANEL -->
+                <div class="tab-panel active" id="panel-assignments">
+                    <div class="panel-toolbar">
+                        <!-- Sort Dropdown -->
+                        <div class="sort-dropdown-wrap" id="sortDropdownWrap">
+                            <button class="btn btn-secondary text-xs" onclick="toggleSortDropdown(event)" id="sortDropBtn">
+                                <i class="ph ph-funnel-simple"></i>
+                                Sort: <span id="sortLabel">Due Date</span>
+                                <i class="ph ph-caret-down" style="font-size:10px;"></i>
+                            </button>
+                            <div class="sort-dropdown-menu" id="sortDropMenu">
+                                <div class="sort-option active" data-sort="due_date" onclick="setSort('due_date')"><i class="ph ph-calendar-blank"></i> Due Date</div>
+                                <div class="sort-option" data-sort="title" onclick="setSort('title')"><i class="ph ph-text-aa"></i> Name</div>
+                                <div class="sort-option" data-sort="status" onclick="setSort('status')"><i class="ph ph-check-circle"></i> Status</div>
+                            </div>
+                        </div>
+                        <button id="adminAddAsgBtn" class="btn btn-primary hidden" onclick="openAddAssignmentModal()">
+                            <i class="ph ph-plus"></i> Add Assignment
+                        </button>
+                    </div>
+                    <div id="assignmentList" class="assignment-list"></div>
+                </div>
+
+                <!-- SYLLABUS PANEL -->
+                <div class="tab-panel" id="panel-syllabus">
+                    <div class="panel-toolbar">
+                        <span class="text-sm text-muted mono">Course outline & topics</span>
+                        <button id="adminAddSylBtn" class="btn btn-primary hidden" onclick="openAddSyllabusModal()">
+                            <i class="ph ph-plus"></i> Add Topic
+                        </button>
+                    </div>
+                    <div id="syllabusList" class="syllabus-list"></div>
+                </div>
+
+                <!-- NOTES PANEL -->
+                <div class="tab-panel" id="panel-notes">
+                    <div class="panel-toolbar">
+                        <span class="text-sm text-muted mono">Shared class notes & resources</span>
+                        <button id="adminAddNoteBtn" class="btn btn-primary hidden" onclick="openAddNoteModal()">
+                            <i class="ph ph-plus"></i> Add Note
+                        </button>
+                    </div>
+                    <div id="notesList" class="notes-list"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- COVER PAGE VIEW -->
+        <div id="coverPageView" class="hidden" style="display:flex; flex-direction:column; flex:1; height:100%; overflow:hidden;">
+            <div class="cp-toolbar">
+                <h2 class="mono" style="font-size:0.9375rem;">Cover Page Generator</h2>
+                <button class="btn btn-primary text-xs" onclick="downloadCoverPage()">
+                    <i class="ph ph-download-simple"></i> Download PNG
+                </button>
+            </div>
+            <div class="cp-container">
+                <div class="cp-form-area">
+                    <p class="text-xs text-muted" style="margin-bottom:16px;">Fill details to generate Arka Jain University cover page.</p>
+                    <div class="form-group"><label class="form-label">Name</label><input type="text" class="input" oninput="updateCP('cp-val-name',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Enrollment No</label><input type="text" class="input" oninput="updateCP('cp-val-enroll',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Roll No</label><input type="text" class="input" oninput="updateCP('cp-val-roll',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Program</label><input type="text" class="input" oninput="updateCP('cp-val-prog',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Branch</label><input type="text" class="input" oninput="updateCP('cp-val-branch',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Semester</label><input type="text" class="input" oninput="updateCP('cp-val-sem',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Section</label><input type="text" class="input" oninput="updateCP('cp-val-sec',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Subject/Course</label><input type="text" class="input" id="cp-input-subj" oninput="updateCP('cp-val-subj',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Batch</label><input type="text" class="input" oninput="updateCP('cp-val-batch',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Submitted to</label><input type="text" class="input" id="cp-input-teacher" oninput="updateCP('cp-val-submit',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Assignment No</label><input type="text" class="input" oninput="updateCP('cp-val-asgno',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Date</label><input type="text" class="input" oninput="updateCP('cp-val-date',this.value)"></div>
+                    <div class="form-group"><label class="form-label">Place</label><input type="text" class="input" oninput="updateCP('cp-val-place',this.value)"></div>
+                </div>
+                <div class="cp-preview-area">
+                    <div class="cp-a4" id="coverPagePreview">
+                        <div class="cp-a4-inner">
+                            <div class="cp-a4-content">
+                                <div class="cp-header">
+                                    <div class="cp-logo-row">
+                                        <div style="background:#2b2b5c;color:#fff;border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0;">JGI</div>
+                                        <div style="text-align:left;">
+                                            <div style="color:#2b2b5c;font-size:26px;font-weight:900;line-height:1;">ARKA <span style="color:#c00;">JAIN</span></div>
+                                            <div style="color:#2b2b5c;font-size:22px;font-weight:700;line-height:1;">University</div>
+                                            <div style="font-size:10px;font-weight:700;">Jharkhand</div>
+                                        </div>
+                                        <div style="border-left:1px solid #ccc;padding-left:14px;display:flex;align-items:center;gap:8px;">
+                                            <div style="text-align:left;color:#2b2b5c;">
+                                                <div style="font-weight:900;font-size:15px;">NAAC</div>
+                                                <div style="font-size:12px;">GRADE</div>
+                                                <div style="font-size:6px;color:#c00;">ACCREDITED UNIVERSITY</div>
+                                            </div>
+                                            <div style="background:#c00;color:#fff;font-weight:900;font-size:22px;padding:2px 8px;">A</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:20px;margin-bottom:6px;">School of Engineering & IT</div>
+                                    <div style="font-size:18px;margin-bottom:6px;">Department of Computer Science & IT</div>
+                                    <div style="font-size:16px;text-transform:uppercase;margin-bottom:6px;">ACADEMIC YEAR – 2025-26</div>
+                                    <div style="font-size:16px;font-weight:700;margin-bottom:12px;">EVEN SEMESTER</div>
+                                    <div style="font-size:18px;font-weight:700;">Assignment No: <span id="cp-val-asgno" style="font-weight:400;"></span></div>
+                                </div>
+                                <div class="cp-fields">
+                                    <div class="cp-field-row"><div class="cp-field-label">Name:</div><div class="cp-field-value" id="cp-val-name"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Enrollment No:</div><div class="cp-field-value" id="cp-val-enroll"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Roll No:</div><div class="cp-field-value" id="cp-val-roll"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Program:</div><div class="cp-field-value" id="cp-val-prog"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Branch:</div><div class="cp-field-value" id="cp-val-branch"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Semester:</div><div class="cp-field-value" id="cp-val-sem"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Section:</div><div class="cp-field-value" id="cp-val-sec"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Subject/Course:</div><div class="cp-field-value" id="cp-val-subj"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Batch:</div><div class="cp-field-value" id="cp-val-batch"></div></div>
+                                    <div class="cp-field-row"><div class="cp-field-label">Submitted to:</div><div class="cp-field-value" id="cp-val-submit"></div></div>
+                                </div>
+                                <div class="cp-footer">
+                                    <div style="display:flex;flex-direction:column;gap:10px;">
+                                        <div style="margin-bottom:50px;">Student's Signature</div>
+                                        <div style="display:flex;gap:8px;"><div>Date:</div><div style="border-bottom:1px dashed #000;min-width:140px;" id="cp-val-date"></div></div>
+                                        <div style="display:flex;gap:8px;"><div>Place:</div><div style="border-bottom:1px dashed #000;min-width:140px;" id="cp-val-place"></div></div>
+                                    </div>
+                                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+                                        <div style="margin-bottom:50px;">Teacher's Signature</div>
+                                        <div class="cp-grade-box">Grade:</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WELCOME STATE (when nothing selected) -->
+        <div id="welcomeView" style="display:flex;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text-muted);padding:40px;text-align:center;">
+            <i class="ph ph-books" style="font-size:48px;opacity:0.3;"></i>
+            <p class="mono text-sm">Select a subject from the sidebar</p>
+        </div>
+    </main>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Sign In Modal -->
+<div id="signInModal" class="modal-overlay" onclick="closeOnOutside(event,'signInModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" style="font-size:0.9375rem;">Sign In Required</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('signInModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body" style="text-align:center;padding:28px 20px;">
+            <i class="ph ph-lock-key text-muted" style="font-size:40px;margin-bottom:14px;display:block;"></i>
+            <p style="margin-bottom:20px;font-size:0.875rem;">Sign in to upload answers or track progress.</p>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="signInWithGoogle()" id="googleSignInBtn">
+                <i class="ph ph-google-logo"></i> Continue with Google
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="uploadModal" class="modal-overlay" onclick="closeOnOutside(event,'uploadModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" style="font-size:0.9375rem;">Upload Answer</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('uploadModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="uploadAsgId">
+            <div class="form-group">
+                <label class="form-label">File (PDF/Word/Image, max 50MB)</label>
+                <input type="file" id="uploadFile" class="input" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">
+            </div>
+            <div style="text-align:center;margin:12px 0;color:var(--text-muted);font-size:0.8rem;">— OR —</div>
+            <div class="form-group">
+                <label class="form-label">External Link (Drive, Docs, etc.)</label>
+                <input type="url" id="uploadUrl" class="input" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitUpload()" id="submitUploadBtn">Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Assignment Modal -->
+<div id="assignmentModal" class="modal-overlay" onclick="closeOnOutside(event,'assignmentModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" id="asgModalTitle" style="font-size:0.9375rem;">Add Assignment</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('assignmentModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="asgId">
+            <div class="form-group"><label class="form-label">Title</label><input type="text" id="asgTitle" class="input" placeholder="e.g. Chapter 3 Exercises"></div>
+            <div class="form-group"><label class="form-label">Subject</label><select id="asgSubject" class="input"></select></div>
+            <div class="form-group">
+                <label class="form-label">Due Date</label>
+                <div class="datepicker-wrapper" id="dpWrapper">
+                    <div class="datepicker-trigger" onclick="toggleDatePicker(event)" id="dpTrigger">
+                        <span id="dpDisplay">Select date...</span>
+                        <i class="ph ph-calendar-blank"></i>
+                    </div>
+                    <input type="hidden" id="asgDueDate">
+                    <div class="datepicker-popover" id="dpPopover" onclick="event.stopPropagation()">
+                        <div class="dp-header">
+                            <button class="btn btn-ghost btn-icon" onclick="changeMonth(-1)"><i class="ph ph-caret-left"></i></button>
+                            <strong id="dpMonthYear" class="mono text-sm"></strong>
+                            <button class="btn btn-ghost btn-icon" onclick="changeMonth(1)"><i class="ph ph-caret-right"></i></button>
+                        </div>
+                        <div class="dp-grid" id="dpGrid"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group"><label class="form-label">Remarks (Optional)</label><input type="text" id="asgRemarks" class="input" placeholder="e.g. Submit hardcopy as well"></div>
+            <div class="form-group"><label class="form-label">Question File URL</label><input type="url" id="asgQuestionUrl" class="input" placeholder="https://..."></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('assignmentModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveAssignment()" id="saveAsgBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Syllabus Modal -->
+<div id="syllabusModal" class="modal-overlay" onclick="closeOnOutside(event,'syllabusModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" id="sylModalTitle" style="font-size:0.9375rem;">Add Topic</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('syllabusModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="sylId">
+            <div class="form-group"><label class="form-label">Unit / Topic Title</label><input type="text" id="sylTitle" class="input" placeholder="e.g. Unit 1 – Limits & Derivatives"></div>
+            <div class="form-group"><label class="form-label">Description / Content</label><textarea id="sylBody" class="input" rows="5" placeholder="List topics, sub-topics, outcomes..."></textarea></div>
+            <div class="form-group"><label class="form-label">Reference Link (Optional)</label><input type="url" id="sylUrl" class="input" placeholder="https://..."></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('syllabusModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveSyllabus()" id="saveSylBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Notes Modal -->
+<div id="noteModal" class="modal-overlay" onclick="closeOnOutside(event,'noteModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" id="noteModalTitle" style="font-size:0.9375rem;">Add Note</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('noteModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="noteId">
+            <div class="form-group"><label class="form-label">Title</label><input type="text" id="noteTitle" class="input" placeholder="e.g. Week 3 Lecture Notes"></div>
+            <div class="form-group"><label class="form-label">Content</label><textarea id="noteBody" class="input" rows="6" placeholder="Notes, key points, summaries..."></textarea></div>
+            <div class="form-group"><label class="form-label">File / Drive Link (Optional)</label><input type="url" id="noteUrl" class="input" placeholder="https://..."></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('noteModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveNote()" id="saveNoteBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Profile Modal -->
+<div id="profileModal" class="modal-overlay" onclick="closeOnOutside(event,'profileModal')">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" style="font-size:0.9375rem;">Profile & Settings</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('profileModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+                <div id="profileAvatarLarge" class="avatar lg"></div>
+                <div>
+                    <div id="profileName" style="font-weight:600;margin-bottom:2px;"></div>
+                    <div id="profileEmail" class="text-muted text-sm" style="margin-bottom:6px;"></div>
+                    <div id="profileRoleBadge"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Accent Theme</label>
+                <div class="theme-swatches">
+                    <div class="swatch" style="background:#22c55e;" onclick="setTheme('default')" data-theme-btn="default" title="Green"></div>
+                    <div class="swatch" style="background:#8b5cf6;" onclick="setTheme('violet')"  data-theme-btn="violet" title="Violet"></div>
+                    <div class="swatch" style="background:#f43f5e;" onclick="setTheme('rose')"    data-theme-btn="rose" title="Rose"></div>
+                    <div class="swatch" style="background:#3b82f6;" onclick="setTheme('blue')"    data-theme-btn="blue" title="Blue"></div>
+                    <div class="swatch" style="background:#f59e0b;" onclick="setTheme('amber')"   data-theme-btn="amber" title="Amber"></div>
+                    <div class="swatch" style="background:#e4e4e7;border-color:#a1a1aa;" onclick="setTheme('light')" data-theme-btn="light" title="Light"></div>
+                </div>
+                <p class="text-xs text-muted" style="margin-top:6px;">Tip: Alt+T toggles light/dark</p>
+            </div>
+
+            <div class="form-group" style="margin-top:8px; padding-top:16px; border-top:1px solid var(--border);">
+                <label class="form-label">App</label>
+                <button id="pwaInstallBtn" class="btn btn-secondary text-xs" style="display:none; width:100%; justify-content:center;" onclick="triggerInstallPrompt()">
+                    <i class="ph ph-device-mobile"></i> Install TaskBoard as App
+                </button>
+                <div id="pwaInstalledNote" style="display:none; font-size:0.8rem; color:var(--success); display:flex; align-items:center; gap:6px;">
+                    <i class="ph ph-check-circle"></i> Running as installed app
+                </div>
+                <p class="text-xs text-muted" style="margin-top:6px;">Install for offline access and a native app feel.</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="justify-content:space-between;">
+            <button class="btn btn-danger" onclick="signOut()"><i class="ph ph-sign-out"></i> Sign Out</button>
+            <button class="btn btn-primary" onclick="closeModal('profileModal')">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- Complaint / Request Modal (students) -->
+<div id="complaintModal" class="modal-overlay" onclick="closeOnOutside(event,'complaintModal')">
+    <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" style="font-size:0.9375rem;">Report / Request</h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('complaintModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="modal-body">
+
+            <!-- Step 1: Type -->
+            <div class="form-group">
+                <label class="form-label">What do you want to do?</label>
+                <div class="type-pills">
+                    <div class="type-pill complaint" data-type="complaint" onclick="selectComplaintType('complaint')">
+                        <i class="ph ph-warning-circle"></i> Raise a Complaint
+                    </div>
+                    <div class="type-pill request" data-type="request" onclick="selectComplaintType('request')">
+                        <i class="ph ph-plus-circle"></i> Request an Addition
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Context -->
+            <div class="form-group">
+                <label class="form-label">Subject <span class="text-muted">(optional)</span></label>
+                <select id="cSubject" class="input" onchange="populateComplaintRef()">
+                    <option value="">— General / No specific subject —</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="cRefGroup" style="display:none;">
+                <label class="form-label" id="cRefLabel">Related to</label>
+                <select id="cRef" class="input">
+                    <option value="">— Select —</option>
+                </select>
+            </div>
+
+            <!-- Step 3: Category -->
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                <select id="cCategory" class="input">
+                    <option value="wrong_info">Wrong / Outdated Information</option>
+                    <option value="missing_file">Missing File or Link</option>
+                    <option value="missing_assignment">Missing Assignment</option>
+                    <option value="missing_notes">Missing Notes</option>
+                    <option value="missing_syllabus">Missing Syllabus Topic</option>
+                    <option value="due_date">Incorrect Due Date</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <!-- Step 4: Title + Description -->
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input type="text" id="cTitle" class="input" placeholder="Brief summary of your issue or request">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="cBody" class="input" rows="4" placeholder="Describe in detail..."></textarea>
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('complaintModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitComplaint()" id="submitComplaintBtn">Submit</button>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Inbox Modal -->
+<div id="inboxModal" class="modal-overlay" onclick="closeOnOutside(event,'inboxModal')">
+    <div class="modal modal-wide">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 class="mono" style="font-size:0.9375rem;display:flex;align-items:center;gap:8px;">
+                <i class="ph ph-tray"></i> Ticket Inbox
+                <span id="inboxCount" class="chip mono" style="font-size:0.65rem;"></span>
+            </h2>
+            <button class="btn btn-ghost btn-icon" onclick="closeModal('inboxModal')"><i class="ph ph-x"></i></button>
+        </div>
+        <div class="inbox-filters">
+            <button class="btn btn-primary text-xs active" data-filter="all" onclick="setInboxFilter('all')">All</button>
+            <button class="btn btn-secondary text-xs" data-filter="open" onclick="setInboxFilter('open')">Open</button>
+            <button class="btn btn-secondary text-xs" data-filter="complaint" onclick="setInboxFilter('complaint')"><i class="ph ph-warning-circle"></i> Complaints</button>
+            <button class="btn btn-secondary text-xs" data-filter="request" onclick="setInboxFilter('request')"><i class="ph ph-plus-circle"></i> Requests</button>
+            <button class="btn btn-secondary text-xs" data-filter="resolved" onclick="setInboxFilter('resolved')"><i class="ph ph-check-circle"></i> Resolved</button>
+        </div>
+        <div class="modal-body" style="padding:0; max-height:60vh; overflow-y:auto;">
+            <div id="inboxList" class="inbox-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- PWA Update Banner -->
+<div id="pwaUpdateBanner" class="pwa-update-banner" role="alert" aria-live="polite">
+    <div class="banner-text">
+        <i class="ph ph-arrow-circle-up"></i>
+        <div>
+            <strong>Update available</strong>
+            <span class="text-muted" style="margin-left:6px;font-size:0.8rem;">A new version of TaskBoard is ready.</span>
+        </div>
+    </div>
+    <div class="banner-actions">
+        <button class="btn btn-ghost text-xs" onclick="dismissUpdateBanner()">Later</button>
+        <button class="btn btn-primary text-xs" onclick="applyUpdate()">
+            <i class="ph ph-arrow-clockwise"></i> Update now
+        </button>
+    </div>
+</div>
+
+<!-- Turnstile -->
+<div id="global-turnstile" style="display:none;" class="cf-turnstile" data-sitekey="0x4AAAAAACpYeiWtC3staVTf" data-size="invisible"></div>
+
+<!-- Toasts -->
+<div id="toastContainer" class="toast-container"></div>
+
+<script>
+/* ==========================================
+ * CONFIG
+ * ========================================== */
+const API_BASE_URL = 'https://nullyex-api.onestreakgaming2.workers.dev';
+const ADMIN_EMAIL  = 'farhankhalid626@gmail.com';
+
+let supabaseClient;
+try {
+    if (window.supabase) {
+        supabaseClient = window.supabase.createClient(
+            'https://awvmexwufnfdmliemscj.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3dm1leHd1Zm5mZG1saWVtc2NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjA4NTgsImV4cCI6MjA4ODczNjg1OH0.4tfwEPZ7NX0e7Cg9tU6LwHx2-n3yJDxgothQrEXUNl0'
+        );
+    }
+} catch(e) { console.error('Supabase init error:', e); }
+
+const SUBJECTS = [
+    { id:'sub_1',  name:'Engineering Mathematics–II',       teacher:'Prof. Deepa Mandal' },
+    { id:'sub_2',  name:'Engineering Chemistry',            teacher:'Dr. ChandraPrabha Sahu' },
+    { id:'sub_3',  name:'Programming with Python',          teacher:'IBM SUBJECT EXPERT' },
+    { id:'sub_4',  name:'English for Skill Enhancement',    teacher:'Dr. Monika Singh' },
+    { id:'sub_5',  name:'Universal Human Values',           teacher:'Dr Binod Kumar Choudhary' },
+    { id:'sub_6',  name:'Manufacturing Practice',           teacher:'Dr. Shailendra kr Prashad' },
+    { id:'sub_7',  name:'Constitution Of India',            teacher:'Dr. Prem Nath Suman' },
+    { id:'sub_8',  name:'Engineering Chemistry Lab',        teacher:'Mr. Abhijit Mandal' },
+    { id:'sub_9',  name:'Programming with Python Lab',      teacher:'IBM SUBJECT EXPERT' },
+    { id:'sub_10', name:'Design Thinking & Idea Lab',       teacher:'Mr. Santosh Kumar Sah' },
+    { id:'sub_11', name:'Engineering Workshop',             teacher:'Mr. Jai Narayan' },
+    { id:'sub_12', name:'English Language & Comm. Lab',     teacher:'Dr. Monika Singh' }
+];
+
+/* ==========================================
+ * STATE
+ * ========================================== */
+const state = {
+    user: null,
+    isAdmin: false,
+    assignments: [],
+    syllabus: [],
+    notes: [],
+    currentView: null,          // null | 'subject' | 'cover_page'
+    currentSubjectId: null,
+    currentTab: 'assignments',  // 'assignments' | 'syllabus' | 'notes'
+    sortBy: 'due_date',
+    sidebarCollapsed: localStorage.getItem('sidebar_collapsed') === 'true',
+    theme: localStorage.getItem('app_theme') || 'default',
+    dpCurrentMonth: new Date().getMonth(),
+    dpCurrentYear:  new Date().getFullYear()
+};
+
+/* ==========================================
+ * UTILS
+ * ========================================== */
+function getInitials(name, email) {
+    if (name) {
+        const p = name.trim().split(/\s+/);
+        return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : p[0].substring(0,2).toUpperCase();
+    }
+    return email ? email.substring(0,2).toUpperCase() : '??';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const local = new Date(d.getTime() + Math.abs(d.getTimezoneOffset()*60000));
+    return local.toLocaleDateString('en-IN', { month:'short', day:'numeric', year:'numeric' });
+}
+
+function getDaysDiff(dateString) {
+    if (!dateString) return 999;
+    const due = new Date(dateString);
+    const dueLocal = new Date(due.getTime() + Math.abs(due.getTimezoneOffset()*60000));
+    dueLocal.setHours(23,59,59,999);
+    return Math.ceil((dueLocal - new Date()) / (1000*60*60*24));
+}
+
+function showToast(message, type = 'success') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    const icon = type === 'success'
+        ? '<i class="ph ph-check-circle" style="color:var(--success);flex-shrink:0;font-size:16px;"></i>'
+        : '<i class="ph ph-warning-circle" style="color:var(--danger);flex-shrink:0;font-size:16px;"></i>';
+    t.innerHTML = `${icon}<div style="flex:1;">${message}</div>`;
+    c.appendChild(t);
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('active'); }
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+    if (id === 'assignmentModal') closeDatePicker();
+}
+function closeOnOutside(e, id) { if (e.target.id === id) closeModal(id); }
+
+/* ==========================================
+ * SIDEBAR
+ * ========================================== */
+function toggleSidebar() {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    localStorage.setItem('sidebar_collapsed', state.sidebarCollapsed);
+    applySidebarState();
+}
+function applySidebarState() {
+    const sb = document.getElementById('sidebar');
+    const icon = document.getElementById('sidebarIcon');
+    if (!sb) return;
+    if (state.sidebarCollapsed && window.innerWidth > 768) {
+        sb.classList.add('collapsed');
+        if (icon) icon.className = 'ph ph-list';
+    } else {
+        sb.classList.remove('collapsed');
+        if (icon) icon.className = 'ph ph-caret-line-left';
+    }
+}
+function toggleMobileSidebar() {
+    document.getElementById('sidebar')?.classList.toggle('mobile-open');
+    document.getElementById('sidebarOverlay')?.classList.toggle('active');
+}
+window.addEventListener('resize', () => {
+    if (window.innerWidth <= 768) document.getElementById('sidebar')?.classList.remove('collapsed');
+    else applySidebarState();
+});
+
+/* ==========================================
+ * THEME
+ * ========================================== */
+function setTheme(theme) {
+    state.theme = theme;
+    localStorage.setItem('app_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    document.querySelector(`[data-theme-btn="${theme}"]`)?.classList.add('active');
+}
+document.addEventListener('keydown', e => {
+    if (e.altKey && (e.key === 't' || e.key === 'T')) {
+        const next = state.theme === 'light' ? 'default' : 'light';
+        setTheme(next);
+        showToast(`Theme: ${next}`);
+    }
+});
+
+/* ==========================================
+ * TAB SWITCHING
+ * ========================================== */
+function switchTab(tab) {
+    state.currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tab}`));
+    
+    if (tab === 'assignments') renderAssignments();
+    if (tab === 'syllabus')    renderSyllabus();
+    if (tab === 'notes')       renderNotes();
+    
+    renderAdminControls();
+}
+
+/* ==========================================
+ * SORT DROPDOWN
+ * ========================================== */
+const SORT_LABELS = { due_date:'Due Date', title:'Name', status:'Status' };
+function toggleSortDropdown(e) {
+    e.stopPropagation();
+    document.getElementById('sortDropMenu').classList.toggle('open');
+}
+document.addEventListener('click', () => document.getElementById('sortDropMenu')?.classList.remove('open'));
+
+function setSort(type) {
+    state.sortBy = type;
+    document.getElementById('sortLabel').textContent = SORT_LABELS[type];
+    document.querySelectorAll('.sort-option').forEach(o => o.classList.toggle('active', o.dataset.sort === type));
+    document.getElementById('sortDropMenu')?.classList.remove('open');
+    renderAssignments();
+}
+
+/* ==========================================
+ * API FETCH
+ * ========================================== */
+async function apiFetch(endpoint, method = 'GET', data = null) {
+    const headers = { 'Content-Type':'application/json' };
+    const options = { method, headers };
+    if (data && (method === 'POST' || method === 'PATCH')) {
+        let token = '';
+        try { if (window.turnstile) token = window.turnstile.getResponse() || ''; } catch(_) {}
+        options.body = JSON.stringify({ turnstileToken: token, data });
+    }
+    try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
+        if (method !== 'GET' && window.turnstile) { try { window.turnstile.reset(); } catch(_) {} }
+        if (!res.ok) { const t = await res.text(); throw new Error(t || `API error ${res.status}`); }
+        const text = await res.text();
+        return text ? JSON.parse(text) : null;
+    } catch(err) { throw err; }
+}
+
+/* ==========================================
+ * AUTH
+ * ========================================== */
+async function checkAuth() {
+    if (!supabaseClient) return;
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        updateAuthState(session);
+        supabaseClient.auth.onAuthStateChange((_, session) => updateAuthState(session));
+    } catch(e) { console.error('Auth check error:', e); }
+}
+function updateAuthState(session) {
+    state.user = session?.user || null;
+    state.isAdmin = state.user?.email === ADMIN_EMAIL;
+    renderTopbar();
+    renderAdminControls();
+}
+async function signInWithGoogle() {
+    if (!supabaseClient) { showToast('Service unavailable', 'error'); return; }
+    const btn = document.getElementById('googleSignInBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Connecting...';
+    btn.disabled = true;
+    try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider:'google',
+            options: { redirectTo: window.location.origin + window.location.pathname }
+        });
+        if (error) { showToast(error.message, 'error'); btn.innerHTML = orig; btn.disabled = false; }
+    } catch(e) { showToast(e.message || 'Sign in failed', 'error'); btn.innerHTML = orig; btn.disabled = false; }
+}
+async function signOut() {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+    closeModal('profileModal');
+    showToast('Signed out');
+}
+function requireAuth(cb) { state.user ? cb() : openModal('signInModal'); }
+
+/* ==========================================
+ * DATA FETCHING
+ * ========================================== */
+async function fetchAssignments() {
+    try {
+        const data = await apiFetch('/assignments?select=*&order=due_date.asc', 'GET');
+        state.assignments = data || [];
+    } catch(e) {
+        console.error('Error fetching assignments:', e);
+        state.assignments = [];
+    }
+}
+
+async function fetchSyllabus(subjectId) {
+    try {
+        const data = await apiFetch(`/syllabus?subject_id=eq.${subjectId}&order=order_index.asc`, 'GET');
+        state.syllabus = data || [];
+    } catch(e) {
+        // Table might not exist yet — graceful fail
+        state.syllabus = [];
+    }
+}
+
+async function fetchNotes(subjectId) {
+    try {
+        const data = await apiFetch(`/notes?subject_id=eq.${subjectId}&order=created_at.desc`, 'GET');
+        state.notes = data || [];
+    } catch(e) {
+        state.notes = [];
+    }
+}
+
+async function loadSubject(subjectId) {
+    state.currentSubjectId = subjectId;
+    state.currentView = 'subject';
+    renderView();
+    renderSidebar();
+
+    // Fetch all data for the subject
+    renderAssignmentsLoading();
+    await fetchAssignments();
+    if (state.currentTab === 'syllabus') await fetchSyllabus(subjectId);
+    if (state.currentTab === 'notes')    await fetchNotes(subjectId);
+
+    renderSubjectHeader();
+    renderCurrentTab();
+    renderAdminControls();
+}
+
+/* ==========================================
+ * RENDER: TOP LEVEL
+ * ========================================== */
+function renderView() {
+    const sv = document.getElementById('subjectView');
+    const cpv = document.getElementById('coverPageView');
+    const wv  = document.getElementById('welcomeView');
+
+    sv.classList.add('hidden'); sv.style.display = '';
+    cpv.classList.add('hidden'); cpv.style.display = '';
+    wv.style.display = 'none';
+
+    if (state.currentView === 'subject') {
+        sv.classList.remove('hidden'); sv.style.display = 'flex';
+    } else if (state.currentView === 'cover_page') {
+        cpv.classList.remove('hidden'); cpv.style.display = 'flex';
+    } else {
+        wv.style.display = 'flex';
+    }
+}
+
+function renderTopbar() {
+    const container = document.getElementById('authContainer');
+    const pill = document.getElementById('statusPill');
+    if (!container || !pill) return;
+    if (state.user) {
+        pill.textContent = state.isAdmin ? 'ADMIN' : 'STUDENT';
+        pill.className   = `chip mono ${state.isAdmin ? 'warning' : ''}`;
+        const name      = state.user.user_metadata?.full_name || '';
+        const avatarUrl = state.user.user_metadata?.avatar_url;
+        const inboxBtn  = state.isAdmin
+            ? `<button class="topbar-icon-btn" onclick="openInboxModal()" title="View Tickets" id="inboxBtn">
+                   <i class="ph ph-tray" style="font-size:18px;"></i>
+                   <span class="badge hidden" id="inboxBadge"></span>
+               </button>`
+            : `<button class="topbar-icon-btn" onclick="openComplaintModal()" title="Report / Request">
+                   <i class="ph ph-flag" style="font-size:18px;"></i>
+               </button>`;
+        container.innerHTML = `
+            ${inboxBtn}
+            <div class="avatar" onclick="openProfileModal()">${avatarUrl ? `<img src="${avatarUrl}" alt="">` : getInitials(name, state.user.email)}</div>`;
+        if (state.isAdmin) fetchUnreadCount();
+    } else {
+        pill.textContent = 'GUEST';
+        pill.className   = 'chip mono';
+        container.innerHTML = `<button class="btn btn-primary text-xs" onclick="openModal('signInModal')"><i class="ph ph-sign-in"></i> Sign In</button>`;
+    }
+}
+
+function renderAdminControls() {
+    const asgBtn = document.getElementById('adminAddAsgBtn');
+    const sylBtn = document.getElementById('adminAddSylBtn');
+    const noteBtn = document.getElementById('adminAddNoteBtn');
+    const show = state.isAdmin && state.currentView === 'subject';
+    if (asgBtn)  asgBtn.classList.toggle('hidden',  !(show && state.currentTab === 'assignments'));
+    if (sylBtn)  sylBtn.classList.toggle('hidden',   !(show && state.currentTab === 'syllabus'));
+    if (noteBtn) noteBtn.classList.toggle('hidden',  !(show && state.currentTab === 'notes'));
+}
+
+/* ==========================================
+ * RENDER: SIDEBAR
+ * ========================================== */
+function renderSidebar() {
+    const list = document.getElementById('subjectList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    // Cover Page nav item
+    const cpEl = document.createElement('div');
+    cpEl.className = `nav-item ${state.currentView === 'cover_page' ? 'active' : ''}`;
+    cpEl.style.marginBottom = '4px';
+    cpEl.onclick = () => {
+        state.currentView = 'cover_page';
+        state.currentSubjectId = null;
+        renderView();
+        renderSidebar();
+        renderAdminControls();
+        if (window.innerWidth <= 768) toggleMobileSidebar();
+    };
+    cpEl.innerHTML = `<div class="nav-icon" style="background:var(--accent);color:#000;border-color:var(--accent);"><i class="ph ph-file-pdf"></i></div><div class="nav-label">Cover Page</div>`;
+    list.appendChild(cpEl);
+
+    const divider = document.createElement('div');
+    divider.className = 'nav-section-divider';
+    list.appendChild(divider);
+
+    const label = document.createElement('div');
+    label.className = 'nav-section-label';
+    label.textContent = 'Subjects';
+    list.appendChild(label);
+
+    SUBJECTS.forEach(sub => {
+        const subAsgs = state.assignments.filter(a => a.subject_id === sub.id);
+        const count = subAsgs.length;
+        const hasPastDue = subAsgs.some(a => !a.completed && getDaysDiff(a.due_date) < 0);
+        const words = sub.name.split(/[\s\-\–\&]+/).filter(w => w.length > 0);
+        const icon  = words.length > 1 ? (words[0][0]+words[1][0]).toUpperCase() : sub.name.substring(0,2).toUpperCase();
+
+        const el = document.createElement('div');
+        el.className = `nav-item ${(state.currentSubjectId === sub.id && state.currentView === 'subject') ? 'active' : ''}`;
+        el.onclick = () => {
+            // Update cover page inputs
+            const ci = document.getElementById('cp-input-subj');
+            const ct = document.getElementById('cp-input-teacher');
+            if (ci) ci.value = sub.name;
+            if (ct) ct.value = sub.teacher;
+            updateCP('cp-val-subj', sub.name);
+            updateCP('cp-val-submit', sub.teacher);
+
+            loadSubject(sub.id);
+            if (window.innerWidth <= 768) toggleMobileSidebar();
+        };
+        el.innerHTML = `
+            <div class="nav-icon">${icon}</div>
+            <div class="nav-label">${sub.name}</div>
+            ${count  > 0 ? `<div class="nav-badge">${count}</div>` : ''}
+            ${hasPastDue ? `<div class="dot-past-due"></div>` : ''}
+        `;
+        list.appendChild(el);
+    });
+}
+
+/* ==========================================
+ * RENDER: SUBJECT HEADER & PROGRESS
+ * ========================================== */
+function renderSubjectHeader() {
+    const sub = SUBJECTS.find(s => s.id === state.currentSubjectId);
+    if (!sub) return;
+
+    document.getElementById('subjectTitle').textContent = sub.name;
+    document.getElementById('subjectMeta').innerHTML = `
+        <span><i class="ph ph-user-circle"></i> ${sub.teacher}</span>
+        <span><i class="ph ph-stack"></i> ${state.assignments.filter(a=>a.subject_id===sub.id).length} assignments</span>
+    `;
+    updateProgress();
+}
+
+function updateProgress() {
+    const section = document.getElementById('progressSection');
+    const fill    = document.getElementById('progressFill');
+    const lbl     = document.getElementById('progressLabel');
+    if (!section || !fill || !lbl) return;
+
+    if (!state.currentSubjectId) { section.style.display = 'none'; return; }
+    const subAsgs = state.assignments.filter(a => a.subject_id === state.currentSubjectId);
+    const total   = subAsgs.length;
+    const done    = subAsgs.filter(a => a.completed).length;
+    const pct     = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    if (total === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    fill.style.width      = `${pct}%`;
+    lbl.textContent       = `${done}/${total} (${pct}%)`;
+}
+
+/* ==========================================
+ * RENDER: ASSIGNMENTS LOADING
+ * ========================================== */
+function renderAssignmentsLoading() {
+    const listEl = document.getElementById('assignmentList');
+    if (!listEl) return;
+    listEl.innerHTML = `
+        <div style="padding:32px;text-align:center;color:var(--text-muted);">
+            <i class="ph ph-spinner spinner" style="font-size:24px;"></i>
+            <p class="mono text-xs" style="margin-top:8px;">Loading...</p>
+        </div>`;
+}
+
+/* ==========================================
+ * RENDER: ASSIGNMENTS
+ * ========================================== */
+function renderCurrentTab() {
+    if (state.currentTab === 'assignments') renderAssignments();
+    if (state.currentTab === 'syllabus')    renderSyllabus();
+    if (state.currentTab === 'notes')       renderNotes();
+}
+
+function renderAssignments() {
+    const listEl = document.getElementById('assignmentList');
+    if (!listEl) return;
+    const subAsgs = state.assignments.filter(a => a.subject_id === state.currentSubjectId);
+
+    subAsgs.sort((a, b) => {
+        if (state.sortBy === 'due_date') {
+            const da = a.due_date ? new Date(a.due_date) : new Date(8640000000000000);
+            const db = b.due_date ? new Date(b.due_date) : new Date(8640000000000000);
+            return da - db;
+        }
+        if (state.sortBy === 'title')  return (a.title||'').localeCompare(b.title||'');
+        if (state.sortBy === 'status') return a.completed === b.completed ? 0 : a.completed ? 1 : -1;
+        return 0;
+    });
+
+    if (subAsgs.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><i class="ph ph-folder-open"></i><p>No assignments yet for this subject.</p></div>`;
+        return;
+    }
+
+    listEl.innerHTML = '';
+    subAsgs.forEach(asg => {
+        const days = getDaysDiff(asg.due_date);
+        let dateClass = '', dateLabel = formatDate(asg.due_date);
+        if (!asg.completed) {
+            if (days < 0)       { dateClass = 'danger';  dateLabel += ' · Past Due'; }
+            else if (days <= 3) { dateClass = 'warning'; dateLabel += ` · ${days}d left`; }
+        }
+
+        let uploadsHtml = '';
+        if (asg.uploads?.length) {
+            uploadsHtml = '<div class="uploads-list">';
+            asg.uploads.forEach(up => {
+                uploadsHtml += `
+                    <div class="upload-item">
+                        <div class="upload-info">
+                            <div class="upload-icon-wrap"><i class="ph ph-file-text" style="font-size:16px;"></i></div>
+                            <div class="upload-text">
+                                <span class="upload-name" title="${up.name}">${up.name}</span>
+                                <span class="upload-sub">${up.uploader_email} · ${formatDate(up.date)}</span>
+                            </div>
+                        </div>
+                        <a href="${up.url}" target="_blank" class="btn btn-secondary text-xs" style="flex-shrink:0;">
+                            <i class="ph ph-eye"></i> View
+                        </a>
+                    </div>`;
+            });
+            uploadsHtml += '</div>';
+        }
+
+        const card = document.createElement('div');
+        card.id = `assign-${asg.id}`;
+        card.className = `card ${asg.completed ? 'completed' : ''}`;
+        card.innerHTML = `
+            <div class="card-row">
+                <label class="checkbox-container" style="padding-top:2px;">
+                    <input type="checkbox" ${asg.completed ? 'checked' : ''} onchange="toggleCompleteStatus('${asg.id}',this)">
+                    <div class="checkmark"><i class="ph ph-check" style="font-size:11px;"></i></div>
+                </label>
+                <div class="card-body">
+                    <div class="card-title">${asg.title}</div>
+                    <div class="card-meta">
+                        <span class="chip ${dateClass}"><i class="ph ph-calendar-blank"></i> ${dateLabel}</span>
+                        ${asg.remarks ? `<span class="chip"><i class="ph ph-info"></i> ${asg.remarks}</span>` : ''}
+                    </div>
+                    ${uploadsHtml}
+                    <div class="card-actions">
+                        ${asg.question_url ? `<a href="${asg.question_url}" target="_blank" class="btn btn-secondary text-xs"><i class="ph ph-file-text"></i> Question</a>` : ''}
+                        <button class="btn btn-primary text-xs" onclick="openUploadModal('${asg.id}')">
+                            <i class="ph ph-upload-simple"></i> Upload Answer
+                        </button>
+                        ${state.isAdmin ? `<button class="btn btn-ghost text-xs" onclick="openEditAssignmentModal('${asg.id}')"><i class="ph ph-pencil-simple"></i> Edit</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        listEl.appendChild(card);
+    });
+}
+
+async function toggleCompleteStatus(id, checkboxEl) {
+    if (!state.user) {
+        checkboxEl.checked = !checkboxEl.checked;
+        openModal('signInModal');
+        return;
+    }
+    const asg = state.assignments.find(a => a.id === id);
+    if (!asg) return;
+
+    const prev = asg.completed;
+    const next = !prev;
+
+    // Optimistic update — mutate state then reflect in DOM
+    checkboxEl.disabled = true;
+    checkboxEl.checked  = next;
+    asg.completed = next;
+
+    // Toggle the card class — CSS handles strikethrough & opacity automatically
+    const card = document.getElementById(`assign-${id}`);
+    if (card) card.classList.toggle('completed', next);
+
+    // Recompute progress bar directly from updated state array
+    updateProgress();
+
+    try {
+        await apiFetch(`/assignments?id=eq.${id}`, 'PATCH', { completed: next });
+        if (state.sortBy === 'status') renderAssignments();
+    } catch(e) {
+        // Revert on failure
+        asg.completed      = prev;
+        checkboxEl.checked = prev;
+        if (card) card.classList.toggle('completed', prev);
+        updateProgress();
+        showToast('Failed to update: ' + (e.message || 'Network error'), 'error');
+    }
+    checkboxEl.disabled = false;
+}
+
+/* ==========================================
+ * RENDER: SYLLABUS
+ * ========================================== */
+async function renderSyllabus() {
+    const listEl = document.getElementById('syllabusList');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);"><i class="ph ph-spinner spinner" style="font-size:20px;"></i></div>`;
+    await fetchSyllabus(state.currentSubjectId);
+
+    if (state.syllabus.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><i class="ph ph-book-open"></i><p>No syllabus topics added yet.</p></div>`;
+        return;
+    }
+    listEl.innerHTML = '';
+    state.syllabus.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'syllabus-card';
+        card.innerHTML = `
+            <div class="item-title">${item.title}</div>
+            ${item.body ? `<div class="item-body">${item.body}</div>` : ''}
+            ${item.ref_url || state.isAdmin ? `
+            <div class="item-footer">
+                ${item.ref_url ? `<a href="${item.ref_url}" target="_blank" class="btn btn-secondary text-xs"><i class="ph ph-link"></i> Reference</a>` : '<div></div>'}
+                ${state.isAdmin ? `<button class="btn btn-ghost text-xs" onclick="openEditSyllabusModal('${item.id}')"><i class="ph ph-pencil-simple"></i> Edit</button>` : ''}
+            </div>` : ''}`;
+        listEl.appendChild(card);
+    });
+}
+
+/* ==========================================
+ * RENDER: NOTES
+ * ========================================== */
+async function renderNotes() {
+    const listEl = document.getElementById('notesList');
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);"><i class="ph ph-spinner spinner" style="font-size:20px;"></i></div>`;
+    await fetchNotes(state.currentSubjectId);
+
+    if (state.notes.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><i class="ph ph-note-pencil"></i><p>No notes added yet.</p></div>`;
+        return;
+    }
+    listEl.innerHTML = '';
+    state.notes.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'note-card';
+        card.innerHTML = `
+            <div class="item-title">${item.title}</div>
+            ${item.body ? `<div class="item-body">${item.body}</div>` : ''}
+            <div class="item-footer">
+                <span class="text-xs text-muted mono">${formatDate(item.created_at)}</span>
+                <div style="display:flex;gap:6px;">
+                    ${item.ref_url ? `<a href="${item.ref_url}" target="_blank" class="btn btn-secondary text-xs"><i class="ph ph-link"></i> Open</a>` : ''}
+                    ${state.isAdmin ? `<button class="btn btn-ghost text-xs" onclick="openEditNoteModal('${item.id}')"><i class="ph ph-pencil-simple"></i> Edit</button>` : ''}
+                </div>
+            </div>`;
+        listEl.appendChild(card);
+    });
+}
+
+/* ==========================================
+ * COVER PAGE
+ * ========================================== */
+function updateCP(targetId, value) {
+    const el = document.getElementById(targetId);
+    if (el) el.textContent = value;
+}
+async function downloadCoverPage() {
+    const el = document.getElementById('coverPagePreview');
+    if (!el) return;
+    showToast('Generating image...');
+    try {
+        const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff' });
+        const link = document.createElement('a');
+        link.download = 'Cover_Page.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch(e) { showToast('Failed to generate image', 'error'); }
+}
+
+/* ==========================================
+ * ASSIGNMENT MODAL
+ * ========================================== */
+function populateSubjectDropdown() {
+    const sel = document.getElementById('asgSubject');
+    if (!sel) return;
+    sel.innerHTML = '';
+    SUBJECTS.forEach(sub => {
+        const o = document.createElement('option');
+        o.value = sub.id;
+        o.textContent = sub.name;
+        sel.appendChild(o);
+    });
+}
+
+function openAddAssignmentModal() {
+    document.getElementById('asgModalTitle').textContent = 'Add Assignment';
+    document.getElementById('asgId').value = '';
+    document.getElementById('asgTitle').value = '';
+    document.getElementById('asgSubject').value = state.currentSubjectId;
+    document.getElementById('asgRemarks').value = '';
+    document.getElementById('asgQuestionUrl').value = '';
+    setDatePickerDate(new Date());
+    openModal('assignmentModal');
+}
+
+function openEditAssignmentModal(id) {
+    const asg = state.assignments.find(a => a.id === id);
+    if (!asg) return;
+    document.getElementById('asgModalTitle').textContent = 'Edit Assignment';
+    document.getElementById('asgId').value = asg.id;
+    document.getElementById('asgTitle').value = asg.title;
+    document.getElementById('asgSubject').value = asg.subject_id;
+    document.getElementById('asgRemarks').value = asg.remarks || '';
+    document.getElementById('asgQuestionUrl').value = asg.question_url || '';
+    setDatePickerDate(asg.due_date);
+    openModal('assignmentModal');
+}
+
+async function saveAssignment() {
+    const id          = document.getElementById('asgId').value;
+    const title       = document.getElementById('asgTitle').value.trim();
+    const subject_id  = document.getElementById('asgSubject').value;
+    const due_date    = document.getElementById('asgDueDate').value;
+    const remarks     = document.getElementById('asgRemarks').value.trim();
+    const question_url= document.getElementById('asgQuestionUrl').value.trim();
+
+    if (!title || !due_date) { showToast('Title and Due Date are required', 'error'); return; }
+
+    const btn = document.getElementById('saveAsgBtn');
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Saving...';
+    btn.disabled = true;
+
+    const payload = { title, subject_id, due_date, remarks, question_url };
+    try {
+        if (id) {
+            await apiFetch(`/assignments?id=eq.${id}`, 'PATCH', payload);
+        } else {
+            payload.completed = false; payload.uploads = [];
+            await apiFetch('/assignments', 'POST', payload);
+        }
+        showToast(`Assignment ${id ? 'updated' : 'added'}`);
+        closeModal('assignmentModal');
+        await fetchAssignments();
+        renderSubjectHeader();
+        renderAssignments();
+        renderSidebar();
+    } catch(e) { showToast(e.message || 'Error saving', 'error'); }
+    btn.innerHTML = 'Save'; btn.disabled = false;
+}
+
+/* ==========================================
+ * UPLOAD MODAL
+ * ========================================== */
+function openUploadModal(id) {
+    requireAuth(() => {
+        document.getElementById('uploadAsgId').value = id;
+        document.getElementById('uploadFile').value = '';
+        document.getElementById('uploadUrl').value  = '';
+        openModal('uploadModal');
+    });
+}
+
+async function submitUpload() {
+    const id    = document.getElementById('uploadAsgId').value;
+    const file  = document.getElementById('uploadFile').files[0];
+    const url   = document.getElementById('uploadUrl').value.trim();
+    if (!file && !url) { showToast('Select a file or enter a link', 'error'); return; }
+
+    const btn = document.getElementById('submitUploadBtn');
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Uploading...';
+    btn.disabled = true;
+
+    let finalUrl = url;
+    let fileName = file ? file.name : 'External Link';
+
+    if (file) {
+        if (file.size > 50*1024*1024) { showToast('File exceeds 50MB', 'error'); btn.innerHTML = 'Upload'; btn.disabled = false; return; }
+        const ext   = file.name.split('.').pop();
+        const path  = `${state.user.id}/${Date.now()}_${Math.random().toString(36).substr(2,9)}.${ext}`;
+        try {
+            const { error } = await supabaseClient.storage.from('assignment-pdfs').upload(path, file);
+            if (error) throw new Error(error.message);
+            finalUrl = supabaseClient.storage.from('assignment-pdfs').getPublicUrl(path).data.publicUrl;
+        } catch(e) { showToast(`Storage error: ${e.message}`, 'error'); btn.innerHTML = 'Upload'; btn.disabled = false; return; }
+    }
+
+    const asg = state.assignments.find(a => a.id === id);
+    const newUploads = [...(asg.uploads||[]), { name:fileName, url:finalUrl, date:new Date().toISOString(), uploader_uid:state.user.id, uploader_email:state.user.email }];
+
+    try {
+        await apiFetch(`/assignments?id=eq.${id}`, 'PATCH', { uploads: newUploads });
+        asg.uploads = newUploads;
+        showToast('Upload successful');
+        closeModal('uploadModal');
+        renderAssignments();
+    } catch(e) { showToast(e.message || 'Upload failed', 'error'); }
+    btn.innerHTML = 'Upload'; btn.disabled = false;
+}
+
+/* ==========================================
+ * SYLLABUS MODAL
+ * ========================================== */
+function openAddSyllabusModal() {
+    document.getElementById('sylModalTitle').textContent = 'Add Topic';
+    document.getElementById('sylId').value = '';
+    document.getElementById('sylTitle').value = '';
+    document.getElementById('sylBody').value = '';
+    document.getElementById('sylUrl').value = '';
+    openModal('syllabusModal');
+}
+function openEditSyllabusModal(id) {
+    const item = state.syllabus.find(s => s.id === id);
+    if (!item) return;
+    document.getElementById('sylModalTitle').textContent = 'Edit Topic';
+    document.getElementById('sylId').value = item.id;
+    document.getElementById('sylTitle').value = item.title;
+    document.getElementById('sylBody').value = item.body || '';
+    document.getElementById('sylUrl').value = item.ref_url || '';
+    openModal('syllabusModal');
+}
+async function saveSyllabus() {
+    const id    = document.getElementById('sylId').value;
+    const title = document.getElementById('sylTitle').value.trim();
+    const body  = document.getElementById('sylBody').value.trim();
+    const url   = document.getElementById('sylUrl').value.trim();
+    if (!title) { showToast('Title is required', 'error'); return; }
+
+    const btn = document.getElementById('saveSylBtn');
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i>'; btn.disabled = true;
+    const payload = { title, body, ref_url: url, subject_id: state.currentSubjectId };
+    try {
+        if (id) await apiFetch(`/syllabus?id=eq.${id}`, 'PATCH', payload);
+        else    await apiFetch('/syllabus', 'POST', payload);
+        showToast(`Topic ${id ? 'updated' : 'added'}`);
+        closeModal('syllabusModal');
+        renderSyllabus();
+    } catch(e) { showToast(e.message || 'Error saving', 'error'); }
+    btn.innerHTML = 'Save'; btn.disabled = false;
+}
+
+/* ==========================================
+ * NOTES MODAL
+ * ========================================== */
+function openAddNoteModal() {
+    document.getElementById('noteModalTitle').textContent = 'Add Note';
+    document.getElementById('noteId').value = '';
+    document.getElementById('noteTitle').value = '';
+    document.getElementById('noteBody').value = '';
+    document.getElementById('noteUrl').value = '';
+    openModal('noteModal');
+}
+function openEditNoteModal(id) {
+    const item = state.notes.find(n => n.id === id);
+    if (!item) return;
+    document.getElementById('noteModalTitle').textContent = 'Edit Note';
+    document.getElementById('noteId').value = item.id;
+    document.getElementById('noteTitle').value = item.title;
+    document.getElementById('noteBody').value = item.body || '';
+    document.getElementById('noteUrl').value = item.ref_url || '';
+    openModal('noteModal');
+}
+async function saveNote() {
+    const id    = document.getElementById('noteId').value;
+    const title = document.getElementById('noteTitle').value.trim();
+    const body  = document.getElementById('noteBody').value.trim();
+    const url   = document.getElementById('noteUrl').value.trim();
+    if (!title) { showToast('Title is required', 'error'); return; }
+
+    const btn = document.getElementById('saveNoteBtn');
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i>'; btn.disabled = true;
+    const payload = { title, body, ref_url: url, subject_id: state.currentSubjectId };
+    try {
+        if (id) await apiFetch(`/notes?id=eq.${id}`, 'PATCH', payload);
+        else    await apiFetch('/notes', 'POST', payload);
+        showToast(`Note ${id ? 'updated' : 'added'}`);
+        closeModal('noteModal');
+        renderNotes();
+    } catch(e) { showToast(e.message || 'Error saving', 'error'); }
+    btn.innerHTML = 'Save'; btn.disabled = false;
+}
+
+/* ==========================================
+ * PROFILE MODAL
+ * ========================================== */
+function openProfileModal() {
+    if (!state.user) return;
+    const name     = state.user.user_metadata?.full_name || 'Anonymous';
+    const email    = state.user.email;
+    const avatarUrl= state.user.user_metadata?.avatar_url;
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('profileEmail').textContent = email;
+    document.getElementById('profileRoleBadge').innerHTML = state.isAdmin
+        ? '<span class="chip warning mono"><i class="ph ph-shield-check"></i> ADMIN</span>'
+        : '<span class="chip mono">STUDENT</span>';
+    const av = document.getElementById('profileAvatarLarge');
+    av.innerHTML = avatarUrl ? `<img src="${avatarUrl}" alt="">` : getInitials(name, email);
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    document.querySelector(`[data-theme-btn="${state.theme}"]`)?.classList.add('active');
+
+    // PWA install / standalone status
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                      || window.navigator.standalone === true;
+    const installBtn  = document.getElementById('pwaInstallBtn');
+    const installedNote = document.getElementById('pwaInstalledNote');
+    if (isStandalone) {
+        if (installBtn)   installBtn.style.display   = 'none';
+        if (installedNote) installedNote.style.display = 'flex';
+    } else {
+        if (installedNote) installedNote.style.display = 'none';
+        if (installBtn) {
+            installBtn.style.display = _installPromptEvent ? 'flex' : 'none';
+        }
+    }
+
+    openModal('profileModal');
+}
+
+/* ==========================================
+ * DATEPICKER
+ * ========================================== */
+function toggleDatePicker(e) {
+    e.stopPropagation();
+    const p = document.getElementById('dpPopover');
+    if (p.classList.contains('active')) closeDatePicker();
+    else { p.classList.add('active'); renderCalendar(); }
+}
+function closeDatePicker() { document.getElementById('dpPopover')?.classList.remove('active'); }
+document.addEventListener('click', () => closeDatePicker());
+
+function setDatePickerDate(d) {
+    const date = d ? (typeof d === 'string' ? new Date(d) : d) : new Date();
+    state.dpCurrentMonth = date.getMonth();
+    state.dpCurrentYear  = date.getFullYear();
+    const yyyy = date.getFullYear();
+    const mm   = String(date.getMonth()+1).padStart(2,'0');
+    const dd   = String(date.getDate()).padStart(2,'0');
+    const val  = `${yyyy}-${mm}-${dd}`;
+    document.getElementById('asgDueDate').value = val;
+    document.getElementById('dpDisplay').textContent = formatDate(val);
+}
+
+function changeMonth(delta) {
+    state.dpCurrentMonth += delta;
+    if (state.dpCurrentMonth > 11) { state.dpCurrentMonth = 0; state.dpCurrentYear++; }
+    if (state.dpCurrentMonth < 0)  { state.dpCurrentMonth = 11; state.dpCurrentYear--; }
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('dpMonthYear').textContent = `${months[state.dpCurrentMonth]} ${state.dpCurrentYear}`;
+    const grid = document.getElementById('dpGrid');
+    grid.innerHTML = '';
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => { grid.innerHTML += `<div class="dp-day-name">${d}</div>`; });
+
+    const firstDay    = new Date(state.dpCurrentYear, state.dpCurrentMonth, 1).getDay();
+    const daysInMonth = new Date(state.dpCurrentYear, state.dpCurrentMonth+1, 0).getDate();
+    const selVal      = document.getElementById('asgDueDate').value;
+    const [sy,sm,sd]  = selVal ? selVal.split('-').map(Number) : [0,0,0];
+    const today       = new Date(); today.setHours(0,0,0,0);
+
+    for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+    for (let i = 1; i <= daysInMonth; i++) {
+        const cell   = new Date(state.dpCurrentYear, state.dpCurrentMonth, i);
+        const isSel  = sy===state.dpCurrentYear && (sm-1)===state.dpCurrentMonth && sd===i;
+        const isToday= today.getFullYear()===state.dpCurrentYear && today.getMonth()===state.dpCurrentMonth && today.getDate()===i;
+        const isPast = cell < today;
+
+        const div = document.createElement('div');
+        div.className = `dp-day${isSel?' selected':''}${isToday?' today':''}${isPast?' disabled':''}`;
+        div.textContent = i;
+        if (!isPast) div.onclick = (e) => {
+            e.stopPropagation();
+            const val = `${state.dpCurrentYear}-${String(state.dpCurrentMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            document.getElementById('asgDueDate').value = val;
+            document.getElementById('dpDisplay').textContent = formatDate(val);
+            closeDatePicker();
+            renderCalendar();
+        };
+        grid.appendChild(div);
+    }
+}
+
+/* ==========================================
+ * SUBJECT SEARCH FILTER
+ * ========================================== */
+function initSearch() {
+    const s = document.getElementById('subjectSearch');
+    if (!s) return;
+    s.addEventListener('input', e => {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll('#subjectList .nav-item').forEach(el => {
+            const lbl = el.querySelector('.nav-label')?.textContent.toLowerCase() || '';
+            el.classList.toggle('hidden', q.length > 0 && !lbl.includes(q));
+        });
+    });
+}
+
+/* ==========================================
+ * INIT
+ * ========================================== */
+async function init() {
+    setTheme(state.theme);
+    syncThemeColor();
+    applySidebarState();
+    populateSubjectDropdown();
+    await checkAuth();
+
+    // Fetch assignments in background for sidebar badges
+    try {
+        const data = await apiFetch('/assignments?select=*', 'GET');
+        state.assignments = data || [];
+    } catch(_) {}
+
+    renderSidebar();
+    renderView();
+    renderTopbar();
+    renderAdminControls();
+    initSearch();
+
+    // Register PWA service worker
+    registerServiceWorker();
+}
+
+/* ==========================================
+ * COMPLAINT / REQUEST SYSTEM
+ * ========================================== */
+let inboxFilter   = 'all';
+let allTickets    = [];
+let complaintType = 'complaint'; // 'complaint' | 'request'
+
+// ---- Student: open & populate form ----
+function openComplaintModal() {
+    // Reset form
+    complaintType = null;
+    document.querySelectorAll('.type-pill').forEach(p => p.classList.remove('active'));
+    document.getElementById('cSubject').value  = '';
+    document.getElementById('cRef').innerHTML  = '<option value="">— Select —</option>';
+    document.getElementById('cRefGroup').style.display = 'none';
+    document.getElementById('cCategory').value = 'wrong_info';
+    document.getElementById('cTitle').value    = '';
+    document.getElementById('cBody').value     = '';
+
+    // Populate subject dropdown
+    const sel = document.getElementById('cSubject');
+    sel.innerHTML = '<option value="">— General / No specific subject —</option>';
+    SUBJECTS.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.name;
+        // Pre-select current subject if user is on one
+        if (s.id === state.currentSubjectId) o.selected = true;
+        sel.appendChild(o);
+    });
+
+    if (state.currentSubjectId) populateComplaintRef();
+    openModal('complaintModal');
+}
+
+function selectComplaintType(type) {
+    complaintType = type;
+    document.querySelectorAll('.type-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.type === type);
+    });
+}
+
+async function populateComplaintRef() {
+    const subId = document.getElementById('cSubject').value;
+    const group = document.getElementById('cRefGroup');
+    const sel   = document.getElementById('cRef');
+    if (!subId) { group.style.display = 'none'; return; }
+
+    group.style.display = 'block';
+    sel.innerHTML = '<option value="">— Any / General —</option>';
+
+    // Assignments for this subject
+    const subAsgs = state.assignments.filter(a => a.subject_id === subId);
+    if (subAsgs.length) {
+        const og = document.createElement('optgroup'); og.label = 'Assignments';
+        subAsgs.forEach(a => {
+            const o = document.createElement('option');
+            o.value = `assignment:${a.id}`; o.textContent = a.title;
+            og.appendChild(o);
+        });
+        sel.appendChild(og);
+    }
+
+    // Syllabus items (fetch on-demand)
+    try {
+        const sylData = await apiFetch(`/syllabus?subject_id=eq.${subId}&order=order_index.asc`, 'GET');
+        if (sylData?.length) {
+            const og = document.createElement('optgroup'); og.label = 'Syllabus Topics';
+            sylData.forEach(s => {
+                const o = document.createElement('option');
+                o.value = `syllabus:${s.id}`; o.textContent = s.title;
+                og.appendChild(o);
+            });
+            sel.appendChild(og);
+        }
+    } catch(_) {}
+
+    // Notes (fetch on-demand)
+    try {
+        const noteData = await apiFetch(`/notes?subject_id=eq.${subId}&order=created_at.desc`, 'GET');
+        if (noteData?.length) {
+            const og = document.createElement('optgroup'); og.label = 'Notes';
+            noteData.forEach(n => {
+                const o = document.createElement('option');
+                o.value = `note:${n.id}`; o.textContent = n.title;
+                og.appendChild(o);
+            });
+            sel.appendChild(og);
+        }
+    } catch(_) {}
+}
+
+async function submitComplaint() {
+    if (!complaintType) { showToast('Please select Complaint or Request', 'error'); return; }
+    const title = document.getElementById('cTitle').value.trim();
+    const body  = document.getElementById('cBody').value.trim();
+    if (!title) { showToast('Please enter a title', 'error'); return; }
+
+    const subId    = document.getElementById('cSubject').value;
+    const refVal   = document.getElementById('cRef').value;
+    const category = document.getElementById('cCategory').value;
+    const subName  = subId ? (SUBJECTS.find(s=>s.id===subId)?.name || '') : '';
+
+    let refType = null, refId = null;
+    if (refVal) { [refType, refId] = refVal.split(':'); }
+
+    const payload = {
+        type:           complaintType,
+        category,
+        title,
+        body,
+        subject_id:     subId   || null,
+        subject_name:   subName || null,
+        ref_type:       refType || null,
+        ref_id:         refId   || null,
+        status:         'open',
+        submitter_email: state.user.email,
+        submitter_name:  state.user.user_metadata?.full_name || state.user.email,
+        created_at:     new Date().toISOString()
+    };
+
+    const btn = document.getElementById('submitComplaintBtn');
+    btn.innerHTML = '<i class="ph ph-spinner spinner"></i>'; btn.disabled = true;
+    try {
+        await apiFetch('/tickets', 'POST', payload);
+        showToast('Submitted successfully. Admin will review it.');
+        closeModal('complaintModal');
+    } catch(e) { showToast(e.message || 'Submission failed', 'error'); }
+    btn.innerHTML = 'Submit'; btn.disabled = false;
+}
+
+// ---- Admin: inbox ----
+async function openInboxModal() {
+    openModal('inboxModal');
+    await loadTickets();
+}
+
+async function loadTickets() {
+    const listEl = document.getElementById('inboxList');
+    listEl.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text-muted);"><i class="ph ph-spinner spinner" style="font-size:22px;"></i></div>`;
+    try {
+        const data = await apiFetch('/tickets?order=created_at.desc', 'GET');
+        allTickets = data || [];
+        renderInbox();
+        updateInboxBadge();
+    } catch(e) {
+        listEl.innerHTML = `<div class="inbox-empty"><i class="ph ph-warning"></i><p>Failed to load tickets: ${e.message}</p></div>`;
+    }
+}
+
+function setInboxFilter(f) {
+    inboxFilter = f;
+    document.querySelectorAll('.inbox-filters [data-filter]').forEach(b => {
+        const isActive = b.dataset.filter === f;
+        b.classList.toggle('btn-primary',   isActive);
+        b.classList.toggle('btn-secondary', !isActive);
+    });
+    renderInbox();
+}
+
+const CATEGORY_LABELS = {
+    wrong_info:'Wrong Info', missing_file:'Missing File', missing_assignment:'Missing Assignment',
+    missing_notes:'Missing Notes', missing_syllabus:'Missing Syllabus', due_date:'Due Date', other:'Other'
+};
+
+function renderInbox() {
+    const listEl = document.getElementById('inboxList');
+    const count  = document.getElementById('inboxCount');
+
+    let tickets = allTickets;
+    if (inboxFilter === 'open')      tickets = tickets.filter(t => t.status === 'open');
+    if (inboxFilter === 'resolved')  tickets = tickets.filter(t => t.status === 'resolved');
+    if (inboxFilter === 'complaint') tickets = tickets.filter(t => t.type === 'complaint');
+    if (inboxFilter === 'request')   tickets = tickets.filter(t => t.type === 'request');
+
+    if (count) count.textContent = `${tickets.length} ticket${tickets.length!==1?'s':''}`;
+
+    if (tickets.length === 0) {
+        listEl.innerHTML = `<div class="inbox-empty"><i class="ph ph-tray"></i><p>No tickets here.</p></div>`;
+        return;
+    }
+
+    listEl.innerHTML = '';
+    tickets.forEach(t => {
+        const isOpen    = t.status === 'open';
+        const typeLabel = t.type === 'complaint' ? 'COMPLAINT' : 'REQUEST';
+        const catLabel  = CATEGORY_LABELS[t.category] || t.category;
+        const d = document.createElement('div');
+        d.className = `ticket ${isOpen?'unread':''} type-${t.type}`;
+        d.innerHTML = `
+            <div class="ticket-header">
+                <div class="ticket-title">${t.title}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                    <span class="ticket-badge ${t.type}">${typeLabel}</span>
+                    ${t.status==='resolved' ? '<span class="ticket-badge resolved">RESOLVED</span>' : ''}
+                </div>
+            </div>
+            <div class="ticket-meta">
+                ${t.subject_name ? `<span><i class="ph ph-books"></i> ${t.subject_name}</span>` : ''}
+                <span><i class="ph ph-tag"></i> ${catLabel}</span>
+                <span><i class="ph ph-user"></i> ${t.submitter_name || t.submitter_email}</span>
+                <span><i class="ph ph-clock"></i> ${formatDate(t.created_at)}</span>
+            </div>
+            ${t.body ? `<div class="ticket-body">${t.body}</div>` : ''}
+            <div class="ticket-actions">
+                ${isOpen
+                    ? `<button class="btn btn-primary text-xs" onclick="resolveTicket('${t.id}')"><i class="ph ph-check"></i> Mark Resolved</button>`
+                    : `<button class="btn btn-secondary text-xs" onclick="reopenTicket('${t.id}')"><i class="ph ph-arrow-counter-clockwise"></i> Reopen</button>`
+                }
+                <button class="btn btn-danger text-xs" onclick="deleteTicket('${t.id}')"><i class="ph ph-trash"></i> Delete</button>
+            </div>`;
+        listEl.appendChild(d);
+    });
+}
+
+async function resolveTicket(id) {
+    try {
+        await apiFetch(`/tickets?id=eq.${id}`, 'PATCH', { status: 'resolved' });
+        const t = allTickets.find(x => x.id === id);
+        if (t) t.status = 'resolved';
+        renderInbox();
+        updateInboxBadge();
+        showToast('Ticket resolved');
+    } catch(e) { showToast(e.message || 'Failed', 'error'); }
+}
+
+async function reopenTicket(id) {
+    try {
+        await apiFetch(`/tickets?id=eq.${id}`, 'PATCH', { status: 'open' });
+        const t = allTickets.find(x => x.id === id);
+        if (t) t.status = 'open';
+        renderInbox();
+        updateInboxBadge();
+        showToast('Ticket reopened');
+    } catch(e) { showToast(e.message || 'Failed', 'error'); }
+}
+
+async function deleteTicket(id) {
+    if (!confirm('Delete this ticket permanently?')) return;
+    try {
+        await apiFetch(`/tickets?id=eq.${id}`, 'DELETE');
+        allTickets = allTickets.filter(x => x.id !== id);
+        renderInbox();
+        updateInboxBadge();
+        showToast('Ticket deleted');
+    } catch(e) { showToast(e.message || 'Failed', 'error'); }
+}
+
+async function fetchUnreadCount() {
+    try {
+        const data = await apiFetch('/tickets?status=eq.open', 'GET');
+        const badge = document.getElementById('inboxBadge');
+        if (!badge) return;
+        const count = data?.length || 0;
+        if (count > 0) badge.classList.remove('hidden');
+        else           badge.classList.add('hidden');
+    } catch(_) {}
+}
+
+function updateInboxBadge() {
+    const badge = document.getElementById('inboxBadge');
+    if (!badge) return;
+    const open = allTickets.filter(t => t.status === 'open').length;
+    if (open > 0) badge.classList.remove('hidden');
+    else          badge.classList.add('hidden');
+}
+
+/* ==========================================
+ * PWA — SERVICE WORKER + UPDATE DETECTION
+ * ========================================== */
+let _swRegistration  = null;
+let _pendingWorker   = null;
+
+function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => {
+            _swRegistration = reg;
+            console.log('[PWA] SW registered, scope:', reg.scope);
+
+            // Already waiting — new SW installed but not yet active
+            if (reg.waiting) {
+                _pendingWorker = reg.waiting;
+                showUpdateBanner();
+                return;
+            }
+
+            // Watch for a newly installed SW entering waiting state
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        _pendingWorker = newWorker;
+                        showUpdateBanner();
+                    }
+                });
+            });
+        })
+        .catch(err => console.warn('[PWA] SW registration failed:', err));
+
+    // When the SW controlling the page changes, reload to get fresh content
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+    });
+
+    // Periodically check for updates (every 60 minutes while tab is open)
+    setInterval(() => {
+        if (_swRegistration) _swRegistration.update();
+    }, 60 * 60 * 1000);
+}
+
+function showUpdateBanner() {
+    const banner = document.getElementById('pwaUpdateBanner');
+    if (banner) banner.classList.add('visible');
+}
+
+function dismissUpdateBanner() {
+    const banner = document.getElementById('pwaUpdateBanner');
+    if (banner) banner.classList.remove('visible');
+}
+
+function applyUpdate() {
+    if (_pendingWorker) {
+        _pendingWorker.postMessage({ type: 'SKIP_WAITING' });
+        // controllerchange event above will trigger reload
+    } else {
+        window.location.reload();
+    }
+}
+
+/* ==========================================
+ * PWA — INSTALL PROMPT
+ * ========================================== */
+let _installPromptEvent = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _installPromptEvent = e;
+    // Show install button if we have one rendered
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+    _installPromptEvent = null;
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = 'none';
+    showToast('TaskBoard installed successfully!');
+});
+
+async function triggerInstallPrompt() {
+    if (!_installPromptEvent) return;
+    _installPromptEvent.prompt();
+    const { outcome } = await _installPromptEvent.userChoice;
+    console.log('[PWA] Install prompt outcome:', outcome);
+    _installPromptEvent = null;
+}
+
+/* ==========================================
+ * THEME-COLOR SYNC (for browser chrome)
+ * ========================================== */
+function syncThemeColor() {
+    const colors = {
+        default: '#0a0a0a', violet: '#0a0a0a', rose: '#0a0a0a',
+        blue: '#0a0a0a', amber: '#0a0a0a', light: '#ffffff'
+    };
+    const meta = document.getElementById('themeColorMeta');
+    if (meta) meta.content = colors[state.theme] || '#0a0a0a';
+}
+
+// Patch setTheme to also sync theme-color meta
+const _origSetTheme = setTheme;
+// eslint-disable-next-line no-global-assign
+// (setTheme is already defined above; we wrap it here)
+const _patchedSetTheme = function(theme) {
+    _origSetTheme(theme);
+    syncThemeColor();
+};
+// Override globally
+window.setTheme = _patchedSetTheme;
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<!-- ========================================================
+     SUPABASE SQL — Run these in your Supabase SQL Editor
+     ========================================================
+
+CREATE TABLE IF NOT EXISTS public.syllabus (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_id   text NOT NULL,
+    title        text NOT NULL,
+    body         text,
+    ref_url      text,
+    order_index  integer DEFAULT 0,
+    created_at   timestamptz DEFAULT now()
+);
+ALTER TABLE public.syllabus ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read syllabus"  ON public.syllabus FOR SELECT USING (true);
+CREATE POLICY "Admin write syllabus"  ON public.syllabus FOR ALL USING (auth.email() = 'farhankhalid626@gmail.com');
+
+CREATE TABLE IF NOT EXISTS public.notes (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    subject_id   text NOT NULL,
+    title        text NOT NULL,
+    body         text,
+    ref_url      text,
+    created_at   timestamptz DEFAULT now()
+);
+ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read notes"  ON public.notes FOR SELECT USING (true);
+CREATE POLICY "Admin write notes"  ON public.notes FOR ALL USING (auth.email() = 'farhankhalid626@gmail.com');
+
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    type             text NOT NULL CHECK (type IN ('complaint','request')),
+    category         text,
+    title            text NOT NULL,
+    body             text,
+    subject_id       text,
+    subject_name     text,
+    ref_type         text,   -- 'assignment' | 'syllabus' | 'note'
+    ref_id           text,
+    status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved')),
+    submitter_email  text,
+    submitter_name   text,
+    created_at       timestamptz DEFAULT now()
+);
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+-- Anyone logged in can INSERT (submit a ticket)
+CREATE POLICY "Auth users submit tickets" ON public.tickets FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Only admin can SELECT all tickets
+CREATE POLICY "Admin read tickets"  ON public.tickets FOR SELECT USING (auth.email() = 'farhankhalid626@gmail.com');
+-- Only admin can UPDATE (resolve/reopen) and DELETE
+CREATE POLICY "Admin manage tickets" ON public.tickets FOR ALL USING (auth.email() = 'farhankhalid626@gmail.com');
+
+Also add /tickets route in your Cloudflare Worker mirroring /assignments.
+For DELETE support, add: if (method === 'DELETE') { ... }
+======================================================== -->
+
+</body>
+</html>
