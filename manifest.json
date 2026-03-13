@@ -2,7 +2,8 @@
   "name": "TaskBoard by NullYex",
   "short_name": "TaskBoard",
   "description": "Assignment tracker for Arka Jain University students",
-  "start_url": "/",
+  "start_url": "/Task/",
+  "scope": "/Task/"
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
