@@ -2396,7 +2396,7 @@ let _pendingWorker   = null;
 function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    navigator.serviceWorker.register('sw.js', { scope: '/' })
         .then(reg => {
             _swRegistration = reg;
             console.log('[PWA] SW registered, scope:', reg.scope);
