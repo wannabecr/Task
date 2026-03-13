@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
     <title>TaskBoard by NullYex</title>
 
     <!-- PWA -->
@@ -20,13 +21,25 @@
     <meta name="description" content="Assignment tracker for Arka Jain University students — manage assignments, syllabus and notes.">
     <meta name="application-name" content="TaskBoard">
 
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://challenges.cloudflare.com https://*.supabase.co;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src https://fonts.gstatic.com;
+        img-src 'self' data: https:;
+        connect-src https://*.workers.dev https://*.supabase.co https://challenges.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://cdnjs.cloudflare.com https://accounts.google.com https://www.googleapis.com;
+        frame-src https://challenges.cloudflare.com;
+        worker-src 'self';
+    ">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2" crossorigin="anonymous"></script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <!-- html2canvas is lazy-loaded only when generating the cover page -->
 
     <style>
         /* ===== CSS VARIABLES & THEMES ===== */
@@ -1074,15 +1087,24 @@
 /* ==========================================
  * CONFIG
  * ========================================== */
-const API_BASE_URL = 'https://nullyex-api.onestreakgaming2.workers.dev';
-const ADMIN_EMAIL  = 'farhankhalid626@gmail.com';
+const API_BASE_URL     = 'https://nullyex-api.onestreakgaming2.workers.dev';
+const ADMIN_EMAIL      = 'farhankhalid626@gmail.com';
+// Replace with your actual VAPID public key after running: npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_HERE';
 
 let supabaseClient;
 try {
     if (window.supabase) {
         supabaseClient = window.supabase.createClient(
             'https://awvmexwufnfdmliemscj.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3dm1leHd1Zm5mZG1saWVtc2NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjA4NTgsImV4cCI6MjA4ODczNjg1OH0.4tfwEPZ7NX0e7Cg9tU6LwHx2-n3yJDxgothQrEXUNl0'
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3dm1leHd1Zm5mZG1saWVtc2NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjA4NTgsImV4cCI6MjA4ODczNjg1OH0.4tfwEPZ7NX0e7Cg9tU6LwHx2-n3yJDxgothQrEXUNl0',
+            {
+                auth: {
+                    persistSession:    true,   // keep session alive across PWA restarts
+                    autoRefreshToken:  true,   // silently refresh expiring tokens
+                    detectSessionInUrl: true   // handle OAuth redirect tokens in URL
+                }
+            }
         );
     }
 } catch(e) { console.error('Supabase init error:', e); }
@@ -1252,7 +1274,9 @@ function setSort(type) {
  * ========================================== */
 async function apiFetch(endpoint, method = 'GET', data = null) {
     const headers = { 'Content-Type':'application/json' };
-    const options = { method, headers };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const options = { method, headers, signal: controller.signal };
     if (data && (method === 'POST' || method === 'PATCH')) {
         let token = '';
         try { if (window.turnstile) token = window.turnstile.getResponse() || ''; } catch(_) {}
@@ -1260,11 +1284,16 @@ async function apiFetch(endpoint, method = 'GET', data = null) {
     }
     try {
         const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
+        clearTimeout(timeout);
         if (method !== 'GET' && window.turnstile) { try { window.turnstile.reset(); } catch(_) {} }
         if (!res.ok) { const t = await res.text(); throw new Error(t || `API error ${res.status}`); }
         const text = await res.text();
         return text ? JSON.parse(text) : null;
-    } catch(err) { throw err; }
+    } catch(err) {
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') throw new Error('Request timed out — check your connection');
+        throw err;
+    }
 }
 
 /* ==========================================
@@ -1300,6 +1329,7 @@ async function signInWithGoogle() {
 }
 async function signOut() {
     if (!supabaseClient) return;
+    await unsubscribePush(); // remove this browser's push subscription from Worker
     await supabaseClient.auth.signOut();
     closeModal('profileModal');
     showToast('Signed out');
@@ -1312,7 +1342,7 @@ function requireAuth(cb) { state.user ? cb() : openModal('signInModal'); }
 async function fetchAssignments() {
     try {
         const data = await apiFetch('/assignments?select=*&order=due_date.asc', 'GET');
-        state.assignments = data || [];
+        state.assignments = Array.isArray(data) ? data : [];
     } catch(e) {
         console.error('Error fetching assignments:', e);
         state.assignments = [];
@@ -1320,19 +1350,21 @@ async function fetchAssignments() {
 }
 
 async function fetchSyllabus(subjectId) {
+    state.syllabus = []; // reset before every fetch — never leaves it null
     try {
         const data = await apiFetch(`/syllabus?subject_id=eq.${subjectId}&order=order_index.asc`, 'GET');
-        state.syllabus = data || [];
+        state.syllabus = Array.isArray(data) ? data : [];
     } catch(e) {
-        // Table might not exist yet — graceful fail
+        // Table might not exist yet — graceful fail, stays []
         state.syllabus = [];
     }
 }
 
 async function fetchNotes(subjectId) {
+    state.notes = []; // reset before every fetch
     try {
         const data = await apiFetch(`/notes?subject_id=eq.${subjectId}&order=created_at.desc`, 'GET');
-        state.notes = data || [];
+        state.notes = Array.isArray(data) ? data : [];
     } catch(e) {
         state.notes = [];
     }
@@ -1395,8 +1427,12 @@ function renderTopbar() {
                </button>`;
         container.innerHTML = `
             ${inboxBtn}
+            <button class="topbar-icon-btn" id="notifBellBtn" onclick="handleNotifBell()" title="Enable notifications" style="position:relative;">
+                <i class="ph ph-bell" style="font-size:18px;" id="notifBellIcon"></i>
+            </button>
             <div class="avatar" onclick="openProfileModal()">${avatarUrl ? `<img src="${avatarUrl}" alt="">` : getInitials(name, state.user.email)}</div>`;
         if (state.isAdmin) fetchUnreadCount();
+        updateNotifBell();
     } else {
         pill.textContent = 'GUEST';
         pill.className   = 'chip mono';
@@ -1447,7 +1483,7 @@ function renderSidebar() {
     list.appendChild(label);
 
     SUBJECTS.forEach(sub => {
-        const subAsgs = state.assignments.filter(a => a.subject_id === sub.id);
+        const subAsgs = (Array.isArray(state.assignments) ? state.assignments : []).filter(a => a.subject_id === sub.id);
         const count = subAsgs.length;
         const hasPastDue = subAsgs.some(a => !a.completed && getDaysDiff(a.due_date) < 0);
         const words = sub.name.split(/[\s\-\–\&]+/).filter(w => w.length > 0);
@@ -1487,7 +1523,7 @@ function renderSubjectHeader() {
     document.getElementById('subjectTitle').textContent = sub.name;
     document.getElementById('subjectMeta').innerHTML = `
         <span><i class="ph ph-user-circle"></i> ${sub.teacher}</span>
-        <span><i class="ph ph-stack"></i> ${state.assignments.filter(a=>a.subject_id===sub.id).length} assignments</span>
+        <span><i class="ph ph-stack"></i> ${(Array.isArray(state.assignments) ? state.assignments : []).filter(a=>a.subject_id===sub.id).length} assignments</span>
     `;
     updateProgress();
 }
@@ -1499,7 +1535,7 @@ function updateProgress() {
     if (!section || !fill || !lbl) return;
 
     if (!state.currentSubjectId) { section.style.display = 'none'; return; }
-    const subAsgs = state.assignments.filter(a => a.subject_id === state.currentSubjectId);
+    const subAsgs = (Array.isArray(state.assignments) ? state.assignments : []).filter(a => a.subject_id === state.currentSubjectId);
     const total   = subAsgs.length;
     const done    = subAsgs.filter(a => a.completed).length;
     const pct     = total === 0 ? 0 : Math.round((done / total) * 100);
@@ -1535,7 +1571,7 @@ function renderCurrentTab() {
 function renderAssignments() {
     const listEl = document.getElementById('assignmentList');
     if (!listEl) return;
-    const subAsgs = state.assignments.filter(a => a.subject_id === state.currentSubjectId);
+    const subAsgs = (Array.isArray(state.assignments) ? state.assignments : []).filter(a => a.subject_id === state.currentSubjectId);
 
     subAsgs.sort((a, b) => {
         if (state.sortBy === 'due_date') {
@@ -1618,7 +1654,7 @@ async function toggleCompleteStatus(id, checkboxEl) {
         openModal('signInModal');
         return;
     }
-    const asg = state.assignments.find(a => a.id === id);
+    const asg = (Array.isArray(state.assignments) ? state.assignments : []).find(a => a.id === id);
     if (!asg) return;
 
     const prev = asg.completed;
@@ -1659,12 +1695,14 @@ async function renderSyllabus() {
     listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);"><i class="ph ph-spinner spinner" style="font-size:20px;"></i></div>`;
     await fetchSyllabus(state.currentSubjectId);
 
-    if (state.syllabus.length === 0) {
+    const syllabus = Array.isArray(state.syllabus) ? state.syllabus : [];
+
+    if (syllabus.length === 0) {
         listEl.innerHTML = `<div class="empty-state"><i class="ph ph-book-open"></i><p>No syllabus topics added yet.</p></div>`;
         return;
     }
     listEl.innerHTML = '';
-    state.syllabus.forEach(item => {
+    syllabus.forEach(item => {
         const card = document.createElement('div');
         card.className = 'syllabus-card';
         card.innerHTML = `
@@ -1688,12 +1726,14 @@ async function renderNotes() {
     listEl.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted);"><i class="ph ph-spinner spinner" style="font-size:20px;"></i></div>`;
     await fetchNotes(state.currentSubjectId);
 
-    if (state.notes.length === 0) {
+    const notes = Array.isArray(state.notes) ? state.notes : [];
+
+    if (notes.length === 0) {
         listEl.innerHTML = `<div class="empty-state"><i class="ph ph-note-pencil"></i><p>No notes added yet.</p></div>`;
         return;
     }
     listEl.innerHTML = '';
-    state.notes.forEach(item => {
+    notes.forEach(item => {
         const card = document.createElement('div');
         card.className = 'note-card';
         card.innerHTML = `
@@ -1722,6 +1762,7 @@ async function downloadCoverPage() {
     if (!el) return;
     showToast('Generating image...');
     try {
+        await ensureHtml2Canvas();
         const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff' });
         const link = document.createElement('a');
         link.download = 'Cover_Page.png';
@@ -1757,7 +1798,7 @@ function openAddAssignmentModal() {
 }
 
 function openEditAssignmentModal(id) {
-    const asg = state.assignments.find(a => a.id === id);
+    const asg = (Array.isArray(state.assignments) ? state.assignments : []).find(a => a.id === id);
     if (!asg) return;
     document.getElementById('asgModalTitle').textContent = 'Edit Assignment';
     document.getElementById('asgId').value = asg.id;
@@ -1814,12 +1855,14 @@ function openUploadModal(id) {
 }
 
 async function submitUpload() {
+    const btn = document.getElementById('submitUploadBtn');
+    if (btn.disabled) return; // prevent double submission
+
     const id    = document.getElementById('uploadAsgId').value;
     const file  = document.getElementById('uploadFile').files[0];
     const url   = document.getElementById('uploadUrl').value.trim();
     if (!file && !url) { showToast('Select a file or enter a link', 'error'); return; }
 
-    const btn = document.getElementById('submitUploadBtn');
     btn.innerHTML = '<i class="ph ph-spinner spinner"></i> Uploading...';
     btn.disabled = true;
 
@@ -1837,7 +1880,7 @@ async function submitUpload() {
         } catch(e) { showToast(`Storage error: ${e.message}`, 'error'); btn.innerHTML = 'Upload'; btn.disabled = false; return; }
     }
 
-    const asg = state.assignments.find(a => a.id === id);
+    const asg = (Array.isArray(state.assignments) ? state.assignments : []).find(a => a.id === id);
     const newUploads = [...(asg.uploads||[]), { name:fileName, url:finalUrl, date:new Date().toISOString(), uploader_uid:state.user.id, uploader_email:state.user.email }];
 
     try {
@@ -1862,7 +1905,7 @@ function openAddSyllabusModal() {
     openModal('syllabusModal');
 }
 function openEditSyllabusModal(id) {
-    const item = state.syllabus.find(s => s.id === id);
+    const item = (Array.isArray(state.syllabus) ? state.syllabus : []).find(s => s.id === id);
     if (!item) return;
     document.getElementById('sylModalTitle').textContent = 'Edit Topic';
     document.getElementById('sylId').value = item.id;
@@ -1903,7 +1946,7 @@ function openAddNoteModal() {
     openModal('noteModal');
 }
 function openEditNoteModal(id) {
-    const item = state.notes.find(n => n.id === id);
+    const item = (Array.isArray(state.notes) ? state.notes : []).find(n => n.id === id);
     if (!item) return;
     document.getElementById('noteModalTitle').textContent = 'Edit Note';
     document.getElementById('noteId').value = item.id;
@@ -2062,7 +2105,7 @@ async function init() {
     // Fetch assignments in background for sidebar badges
     try {
         const data = await apiFetch('/assignments?select=*', 'GET');
-        state.assignments = data || [];
+        state.assignments = Array.isArray(data) ? data : [];
     } catch(_) {}
 
     renderSidebar();
@@ -2073,6 +2116,9 @@ async function init() {
 
     // Register PWA service worker
     registerServiceWorker();
+
+    // Supabase realtime — live assignment updates while app is open
+    initRealtime();
 }
 
 /* ==========================================
@@ -2126,7 +2172,7 @@ async function populateComplaintRef() {
     sel.innerHTML = '<option value="">— Any / General —</option>';
 
     // Assignments for this subject
-    const subAsgs = state.assignments.filter(a => a.subject_id === subId);
+    const subAsgs = (Array.isArray(state.assignments) ? state.assignments : []).filter(a => a.subject_id === subId);
     if (subAsgs.length) {
         const og = document.createElement('optgroup'); og.label = 'Assignments';
         subAsgs.forEach(a => {
@@ -2426,6 +2472,32 @@ window.addEventListener('appinstalled', () => {
     showToast('TaskBoard installed successfully!');
 });
 
+/* ==========================================
+ * OFFLINE / ONLINE INDICATOR
+ * ========================================== */
+window.addEventListener('offline', () => {
+    showToast('You\'re offline — changes may not save', 'error');
+});
+window.addEventListener('online', () => {
+    showToast('Back online', 'success');
+});
+
+/* ==========================================
+ * LAZY html2canvas LOADER
+ * Only loads the library when actually needed (cover page download)
+ * ========================================== */
+async function ensureHtml2Canvas() {
+    if (window.html2canvas) return;
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.crossOrigin = 'anonymous';
+        s.onload  = resolve;
+        s.onerror = () => reject(new Error('Failed to load html2canvas'));
+        document.head.appendChild(s);
+    });
+}
+
 async function triggerInstallPrompt() {
     if (!_installPromptEvent) return;
     _installPromptEvent.prompt();
@@ -2456,6 +2528,175 @@ const _patchedSetTheme = function(theme) {
 };
 // Override globally
 window.setTheme = _patchedSetTheme;
+
+/* ==========================================
+ * SUPABASE REALTIME
+ * Live updates while the app is open — no refresh needed
+ * ========================================== */
+let _realtimeChannel = null;
+
+function initRealtime() {
+    if (!supabaseClient) return;
+
+    // Unsubscribe any existing channel first
+    if (_realtimeChannel) {
+        supabaseClient.removeChannel(_realtimeChannel);
+        _realtimeChannel = null;
+    }
+
+    _realtimeChannel = supabaseClient
+        .channel('taskboard-live')
+        .on('postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'assignments' },
+            payload => {
+                const subj = SUBJECTS.find(s => s.id === payload.new?.subject_id);
+                const subjName = subj?.name || 'a subject';
+                showToast(`📚 New assignment added for ${subjName}`);
+                // Re-fetch and re-render
+                refreshAssignmentsQuiet();
+            }
+        )
+        .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'assignments' },
+            () => refreshAssignmentsQuiet()
+        )
+        .on('postgres_changes',
+            { event: 'DELETE', schema: 'public', table: 'assignments' },
+            () => refreshAssignmentsQuiet()
+        )
+        .subscribe(status => {
+            if (status === 'SUBSCRIBED') console.log('[Realtime] Connected');
+        });
+}
+
+async function refreshAssignmentsQuiet() {
+    try {
+        const data = await apiFetch('/assignments?select=*', 'GET');
+        state.assignments = Array.isArray(data) ? data : [];
+        renderSidebar();
+        // Only re-render subject view if we're on the assignments tab
+        if (state.currentView === 'subject' && state.currentTab === 'assignments') {
+            renderAssignments();
+        }
+    } catch(_) {} // silent — don't interrupt the user
+}
+
+/* ==========================================
+ * PUSH NOTIFICATIONS
+/* ==========================================
+ * Request permission + subscribe to Web Push
+ * ========================================== */
+
+/** Convert VAPID base64 public key → Uint8Array for pushManager */
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw     = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+/** Subscribe this browser to Web Push and register with the Worker */
+async function subscribePush() {
+    try {
+        const registration  = await navigator.serviceWorker.ready;
+        const subscription  = await registration.pushManager.subscribe({
+            userVisibleOnly:      true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+
+        await fetch(`${API_BASE_URL}/push-subscription`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                subscription,
+                userEmail: state.user?.email || null
+            })
+        });
+
+        console.log('[Push] Subscribed and registered with worker');
+    } catch (err) {
+        console.warn('[Push] Subscribe failed:', err.message);
+        showToast('Could not enable push notifications', 'error');
+    }
+}
+
+/** Unsubscribe this browser and remove from Worker */
+async function unsubscribePush() {
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) return;
+
+        await fetch(`${API_BASE_URL}/push-subscription`, {
+            method:  'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ endpoint: subscription.endpoint })
+        });
+
+        await subscription.unsubscribe();
+        console.log('[Push] Unsubscribed');
+    } catch (err) {
+        console.warn('[Push] Unsubscribe failed:', err.message);
+    }
+}
+
+async function requestPushPermission() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        showToast('Push notifications not supported in this browser', 'error');
+        return;
+    }
+    if (VAPID_PUBLIC_KEY === 'YOUR_VAPID_PUBLIC_KEY_HERE') {
+        showToast('Push not configured yet — VAPID key missing', 'error');
+        return;
+    }
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === 'granted') {
+        await subscribePush();
+        showToast('🔔 Notifications enabled');
+        updateNotifBell();
+    } else if (permission === 'denied') {
+        showToast('Notifications blocked — enable in browser settings', 'error');
+        updateNotifBell();
+    }
+}
+
+// Call this to check if notifications are already enabled
+function isPushEnabled() {
+    return 'Notification' in window && Notification.permission === 'granted';
+}
+
+function updateNotifBell() {
+    const icon = document.getElementById('notifBellIcon');
+    const btn  = document.getElementById('notifBellBtn');
+    if (!icon || !btn) return;
+    if (!('Notification' in window)) { btn.style.display = 'none'; return; }
+    if (Notification.permission === 'granted') {
+        icon.className = 'ph ph-bell-ringing';
+        icon.style.color = 'var(--accent)';
+        btn.title = 'Notifications enabled';
+    } else if (Notification.permission === 'denied') {
+        icon.className = 'ph ph-bell-slash';
+        icon.style.color = 'var(--text-muted)';
+        btn.title = 'Notifications blocked — change in browser settings';
+    } else {
+        icon.className = 'ph ph-bell';
+        icon.style.color = '';
+        btn.title = 'Enable notifications';
+    }
+}
+
+async function handleNotifBell() {
+    if (Notification.permission === 'granted') {
+        showToast('Notifications are already enabled');
+    } else if (Notification.permission === 'denied') {
+        showToast('Notifications are blocked — allow them in your browser settings', 'error');
+    } else {
+        await requestPushPermission();
+        updateNotifBell();
+    }
+}
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
