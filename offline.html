@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <title>Offline — TaskBoard</title>
+    <link rel="icon" href="/icons/icon-192.png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a0a;
+            color: #e4e4e7;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            padding: 24px;
+        }
+
+        .card {
+            background: #141414;
+            border: 1px solid #27272a;
+            border-radius: 16px;
+            padding: 48px 40px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .icon-wrap {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            border: 1px solid #27272a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-wrap svg {
+            width: 36px;
+            height: 36px;
+            stroke: #71717a;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #e4e4e7;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            font-size: 0.9rem;
+            color: #71717a;
+            line-height: 1.6;
+        }
+
+        .divider {
+            width: 100%;
+            height: 1px;
+            background: #27272a;
+        }
+
+        .tips {
+            text-align: left;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tip {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #a1a1aa;
+        }
+
+        .tip-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 11px 20px;
+            background: #22c55e;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            font-family: inherit;
+        }
+
+        button:hover { opacity: 0.85; }
+        button:active { opacity: 0.7; }
+
+        .logo {
+            font-size: 0.75rem;
+            color: #3f3f46;
+            margin-top: 8px;
+            letter-spacing: 0.05em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Pulse animation on icon when checking connectivity */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+        .checking .icon-wrap svg { animation: pulse 1.2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div class="card" id="card">
+        <div class="icon-wrap">
+            <!-- wifi-slash icon (inline SVG, no CDN dependency) -->
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="2" y1="2" x2="22" y2="22"/>
+                <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+                <path d="M2 8.82a15 15 0 0 1 4.17-2.65"/>
+                <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
+                <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/>
+                <path d="M5 13a10 10 0 0 1 5.24-2.76"/>
+                <line x1="12" y1="20" x2="12.01" y2="20" stroke-width="2"/>
+            </svg>
+        </div>
+
+        <div>
+            <h1>You're offline</h1>
+            <p style="margin-top:8px;">TaskBoard couldn't load this page.<br>Check your connection and try again.</p>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tips">
+            <div class="tip"><div class="tip-dot"></div><span>Previously visited pages may still work — try going back</span></div>
+            <div class="tip"><div class="tip-dot"></div><span>Your uploaded files are saved and will sync when you're back online</span></div>
+            <div class="tip"><div class="tip-dot"></div><span>Connect to Wi-Fi or mobile data to continue</span></div>
+        </div>
+
+        <button onclick="tryReload()" id="retryBtn">Try again</button>
+
+        <div class="logo">TASKBOARD · NULLYEX</div>
+    </div>
+
+    <script>
+        // Auto-retry when connection returns
+        window.addEventListener('online', () => window.location.reload());
+
+        function tryReload() {
+            const btn  = document.getElementById('retryBtn');
+            const card = document.getElementById('card');
+            btn.textContent = 'Checking...';
+            btn.disabled = true;
+            card.classList.add('checking');
+
+            setTimeout(() => {
+                if (navigator.onLine) {
+                    window.location.reload();
+                } else {
+                    btn.textContent = 'Still offline — try again';
+                    btn.disabled = false;
+                    card.classList.remove('checking');
+                }
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
